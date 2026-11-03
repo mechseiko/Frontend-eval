@@ -1,3 +1,0 @@
-# Short description (edit the numbers after your final run)
-
-FieldReady-FE tests whether AI coding models can write production-grade frontend logic for real-world conditions: unreliable networks, money handled to the kobo, messy local phone numbers, out-of-order async responses and keyboard-accessible UI. It has 9 spec-driven tasks graded by hidden Jest tests with tagged checks, so results show which kinds of requirement models miss. All graders are validated: reference solutions pass 100% and plausible wrong solutions are rejected. On the final run, [MODEL A] fully passed X of 9 tasks and [MODEL B] Y of 9; the most common failures were [TAG 1] and [TAG 2], for example [one concrete example]. The eval is reproducible offline from cached model answers.

@@ -1,4 +1,30 @@
+# Dependencies & build
 node_modules/
 sandbox/
-results/raw/
 __pycache__/
+*.pyc
+
+# Local config & sensitive secrets
+models.json
+.env
+.env.*
+*.local
+*.key
+*.pem
+
+# Internal documentation & hackathon submission materials
+docs/
+
+# Reference & trap solutions (prevents leaking answers/tests)
+tasks/**/reference/
+tasks/**/wrong/
+
+# Evaluation results & generated artifacts
+results/*
+!results/.gitkeep
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
