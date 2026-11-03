@@ -1,0 +1,341 @@
+[
+  {
+    "task": "t01_invoice_vat",
+    "reference": {
+      "passed": 16,
+      "total": 16
+    },
+    "wrong": [
+      {
+        "name": "float_total_vat",
+        "passed": 10,
+        "total": 16,
+        "caught_by": [
+          "discount-allocation",
+          "validation",
+          "vat-rounding"
+        ]
+      },
+      {
+        "name": "no_validation_floor",
+        "passed": 7,
+        "total": 16,
+        "caught_by": [
+          "clamp",
+          "discount-allocation",
+          "large-values",
+          "validation",
+          "vat-rounding"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 16
+    }
+  },
+  {
+    "task": "t02_ng_phone",
+    "reference": {
+      "passed": 49,
+      "total": 49
+    },
+    "wrong": [
+      {
+        "name": "last10_digits",
+        "passed": 40,
+        "total": 49,
+        "caught_by": [
+          "country-zero",
+          "garbage",
+          "prefix"
+        ]
+      },
+      {
+        "name": "no_trunk_handling",
+        "passed": 40,
+        "total": 49,
+        "caught_by": [
+          "country-zero",
+          "display",
+          "formats"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 49
+    }
+  },
+  {
+    "task": "t03_resilient_fetch",
+    "reference": {
+      "passed": 46,
+      "total": 46
+    },
+    "wrong": [
+      {
+        "name": "naive_retry",
+        "passed": 18,
+        "total": 46,
+        "caught_by": [
+          "abort",
+          "args",
+          "backoff",
+          "exhaust",
+          "no-retry-status",
+          "post-idempotency",
+          "retry-after"
+        ]
+      },
+      {
+        "name": "no_post_safety",
+        "passed": 39,
+        "total": 46,
+        "caught_by": [
+          "abort",
+          "post-idempotency",
+          "retry-after"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 46
+    }
+  },
+  {
+    "task": "t04_offline_queue",
+    "reference": {
+      "passed": 30,
+      "total": 30
+    },
+    "wrong": [
+      {
+        "name": "naive_queue",
+        "passed": 13,
+        "total": 30,
+        "caught_by": [
+          "corrupt-storage",
+          "dedupe",
+          "fifo-stop",
+          "idempotent-id",
+          "in-flight-dedupe",
+          "max-attempts",
+          "persistence",
+          "single-flight"
+        ]
+      },
+      {
+        "name": "no_inflight_rules",
+        "passed": 25,
+        "total": 30,
+        "caught_by": [
+          "dedupe",
+          "in-flight-dedupe",
+          "max-attempts",
+          "single-flight"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 30
+    }
+  },
+  {
+    "task": "t05_payment_ledger",
+    "reference": {
+      "passed": 33,
+      "total": 33
+    },
+    "wrong": [
+      {
+        "name": "last_event_wins",
+        "passed": 12,
+        "total": 33,
+        "caught_by": [
+          "amount-mismatch",
+          "deferred-refund",
+          "no-time-ordering",
+          "out-of-order",
+          "refund",
+          "terminal",
+          "validation"
+        ]
+      },
+      {
+        "name": "no_deferral",
+        "passed": 14,
+        "total": 33,
+        "caught_by": [
+          "amount-mismatch",
+          "deferred-refund",
+          "duplicate",
+          "out-of-order",
+          "refund",
+          "validation"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 33
+    }
+  },
+  {
+    "task": "t06_search_box",
+    "reference": {
+      "passed": 24,
+      "total": 24
+    },
+    "wrong": [
+      {
+        "name": "naive_search",
+        "passed": 8,
+        "total": 24,
+        "caught_by": [
+          "abort",
+          "debounce",
+          "dedupe-query",
+          "error",
+          "min-chars",
+          "render",
+          "retry",
+          "stale-response",
+          "unmount"
+        ]
+      },
+      {
+        "name": "no_dedupe_no_unmount",
+        "passed": 19,
+        "total": 24,
+        "caught_by": [
+          "dedupe-query",
+          "min-chars",
+          "retry",
+          "unmount"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 2,
+      "total": 24
+    }
+  },
+  {
+    "task": "t07_dialog_a11y",
+    "reference": {
+      "passed": 27,
+      "total": 27
+    },
+    "wrong": [
+      {
+        "name": "escape_and_aria_only",
+        "passed": 10,
+        "total": 27,
+        "caught_by": [
+          "backdrop-drag",
+          "focus-trap",
+          "initial-focus",
+          "no-refocus",
+          "restore-focus",
+          "scroll-lock"
+        ]
+      },
+      {
+        "name": "no_edge_cases",
+        "passed": 18,
+        "total": 27,
+        "caught_by": [
+          "backdrop-drag",
+          "focus-trap",
+          "initial-focus",
+          "no-refocus",
+          "scroll-lock"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 7,
+      "total": 27
+    }
+  },
+  {
+    "task": "t08_business_days",
+    "reference": {
+      "passed": 28,
+      "total": 28
+    },
+    "wrong": [
+      {
+        "name": "local_time_naive",
+        "passed": 9,
+        "total": 28,
+        "caught_by": [
+          "between",
+          "holidays",
+          "observed",
+          "validation",
+          "zero"
+        ]
+      },
+      {
+        "name": "utc_but_simple_holidays",
+        "passed": 13,
+        "total": 28,
+        "caught_by": [
+          "observed",
+          "validation",
+          "zero"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 28
+    }
+  },
+  {
+    "task": "t09_optimistic_store",
+    "reference": {
+      "passed": 20,
+      "total": 20
+    },
+    "wrong": [
+      {
+        "name": "no_base_tracking",
+        "passed": 9,
+        "total": 20,
+        "caught_by": [
+          "apply",
+          "bad-update",
+          "confirm-order",
+          "duplicate-id",
+          "listener-error",
+          "memo",
+          "no-mutation",
+          "unsubscribe"
+        ]
+      },
+      {
+        "name": "snapshot_rollback",
+        "passed": 10,
+        "total": 20,
+        "caught_by": [
+          "bad-update",
+          "confirm-order",
+          "duplicate-id",
+          "listener-error",
+          "no-mutation",
+          "notify",
+          "rollback-middle"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 20
+    }
+  }
+]

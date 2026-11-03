@@ -1,0 +1,10 @@
+{
+  "id": "t03_resilient_fetch",
+  "title": "Retrying fetch wrapper for flaky mobile networks",
+  "category": "network-resilience",
+  "difficulty": "hard",
+  "target": "src/solution.js",
+  "why_it_matters": "On unstable connections a naive retry wrapper can double-charge a customer (retrying a POST), hammer a rate-limited API, or keep retrying after the user cancelled.",
+  "expected_failure_mode": "Models retry POST without an idempotency key, ignore Retry-After limits, or keep retrying after an abort.",
+  "n_tests": 46
+}

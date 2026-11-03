@@ -1,0 +1,4 @@
+node_modules/
+sandbox/
+results/raw/
+__pycache__/

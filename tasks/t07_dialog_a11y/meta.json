@@ -1,0 +1,10 @@
+{
+  "id": "t07_dialog_a11y",
+  "title": "Accessible modal dialog: focus trap, focus restore and scroll lock",
+  "category": "accessibility",
+  "difficulty": "hard",
+  "target": "src/solution.jsx",
+  "why_it_matters": "Keyboard and screen-reader users get lost behind a modal that does not trap or restore focus. Many apps for emerging markets are used on low-end phones with assistive tools and external keyboards.",
+  "expected_failure_mode": "Models implement Escape and ARIA attributes but miss focus restoration, Shift+Tab wrapping, scroll-lock restore, and the mousedown-inside / click-on-backdrop case.",
+  "n_tests": 27
+}

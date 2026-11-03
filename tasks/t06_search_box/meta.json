@@ -1,0 +1,10 @@
+{
+  "id": "t06_search_box",
+  "title": "Search box that survives slow, out-of-order network responses",
+  "category": "async-ui-state",
+  "difficulty": "hard",
+  "target": "src/solution.jsx",
+  "why_it_matters": "On slow mobile networks responses arrive late and out of order. A naive search box shows results for an old query, flickers, or keeps working after unmount.",
+  "expected_failure_mode": "Models ignore stale responses only partially, forget to abort superseded requests, show an error for aborted requests, or re-request the same trimmed query.",
+  "n_tests": 24
+}

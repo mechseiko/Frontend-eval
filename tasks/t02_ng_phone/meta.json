@@ -1,0 +1,10 @@
+{
+  "id": "t02_ng_phone",
+  "title": "Normalise Nigerian mobile numbers from messy user input",
+  "category": "local-input-handling",
+  "difficulty": "medium",
+  "target": "src/solution.js",
+  "why_it_matters": "Sign-up, OTP and payment flows break when numbers typed as +234(0)803..., 0803-123-4567 or 2348031234567 are stored in different shapes or wrongly accepted.",
+  "expected_failure_mode": "Models strip non-digits and take the last 10 digits, which accepts garbage, or miss the (0) trunk digit after the country code.",
+  "n_tests": 49
+}

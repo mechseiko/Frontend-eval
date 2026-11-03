@@ -1,0 +1,5 @@
+{"models": [
+  {"name": "mock-reference", "base_url": "http://127.0.0.1:8765/v1", "model": "mock-reference", "price_in_per_mtok": 1.0, "price_out_per_mtok": 2.0},
+  {"name": "mock-chatty", "base_url": "http://127.0.0.1:8765/v1", "model": "mock-chatty"},
+  {"name": "mock-wrong", "base_url": "http://127.0.0.1:8765/v1", "model": "mock-wrong"}
+]}

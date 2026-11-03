@@ -1,0 +1,37 @@
+{
+  "_readme": "Copy to models.json and edit. Never put API keys in this file: the runner reads them from the environment variable named in api_key_env. Any OpenAI-compatible endpoint works. Model ids change often: copy exact ids from https://openrouter.ai/models (filter 'free' for free ones). price_* fields (USD per million tokens) are optional and only used for the cost estimate in the report.",
+  "models": [
+    {
+      "name": "qwen2.5-coder-7b-local",
+      "base_url": "http://localhost:11434/v1",
+      "api_key_env": null,
+      "model": "qwen2.5-coder:7b",
+      "max_tokens": 4096
+    },
+    {
+      "name": "free-model-1",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "model": "PASTE-A-FREE-MODEL-ID-HERE:free",
+      "disabled": true
+    },
+    {
+      "name": "frontier-1",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "model": "PASTE-A-FRONTIER-MODEL-ID-HERE",
+      "max_tokens": 8192,
+      "price_in_per_mtok": 0.0,
+      "price_out_per_mtok": 0.0,
+      "disabled": true
+    },
+    {
+      "name": "frontier-2",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "model": "PASTE-ANOTHER-FRONTIER-MODEL-ID-HERE",
+      "max_tokens": 8192,
+      "disabled": true
+    }
+  ]
+}
