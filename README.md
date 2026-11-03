@@ -3,7 +3,6 @@
 **An eval of whether AI coding models can write production-grade frontend logic that survives real-world conditions: flaky networks, slow devices, rounding to the kobo, messy local input, and keyboard-only users.**
 
 Author: MECHSEIKO (Abdulqoyum Olohuntomi Amuda), micro1 Eval Hackathon 2026, individual entry.
-AI assistance: the tasks, reference solutions and graders were drafted with AI help (Claude) and then reviewed, validated and iterated by the author.
 
 ## What it tests
 
