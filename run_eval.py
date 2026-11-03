@@ -102,8 +102,16 @@ def grade(task, code, tag, timeout=120):
            "--runTestsByPath", test_file.relative_to(ROOT).as_posix(), "--json", f"--outputFile={out}", "--silent", "--ci"]
     t0 = time.time()
     try:
-        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=timeout)
-        stderr = proc.stderr[-800:]
+        proc = subprocess.run(
+            cmd,
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+        stderr = (proc.stderr or "")[-800:]
     except subprocess.TimeoutExpired:
         return {"passed": 0, "total": task.get("n_tests", 0), "tests": [], "error": "timeout", "seconds": round(time.time() - t0, 1)}
     res = {"passed": 0, "total": 0, "tests": [], "error": None, "seconds": round(time.time() - t0, 1)}
@@ -195,7 +203,7 @@ def call_model(m, prompt):
         try:
             t0 = time.time()
             with urllib.request.urlopen(req, timeout=m.get("timeout_s", 300)) as r:
-                data = json.loads(r.read().decode())
+                data = json.loads(r.read().decode("utf-8", errors="replace"))
             msg = data["choices"][0]["message"]
             return {"text": msg.get("content") or "", "usage": data.get("usage", {}), "latency_s": round(time.time() - t0, 1)}
         except urllib.error.HTTPError as e:
