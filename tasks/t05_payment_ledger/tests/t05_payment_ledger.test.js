@@ -219,3 +219,110 @@ describe("createLedger", () => {
     expect(l.get("b").status).toBe("failed");
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Hardening. {L3} = interacting rules (out-of-order partial refunds, duplicate webhook retries, ...),
+// plus a seeded randomized differential check against the reference.
+import { createLedger as referenceLedger } from "../__ref__/solution";
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const E = (id, type, reference, amountKobo, createdAt = 0) => ({ id, type, reference, amountKobo, createdAt });
+
+describe("createLedger hardening", () => {
+  test("[deferred-refund] {L3} a duplicate retry of a deferred refund is not deferred twice", () => {
+    const l = createLedger();
+    expect(l.handle(E("d1", R, "r", 300))).toEqual({ applied: false, reason: "deferred", status: "pending" });
+    expect(l.handle(E("d1", R, "r", 300))).toEqual({ applied: false, reason: "duplicate", status: "pending" });
+    expect(l.handle(E("s1", S, "r", 1000))).toEqual({ applied: true, reason: null, status: "partially_refunded" });
+    expect(l.get("r")).toEqual({ reference: "r", status: "partially_refunded", amountKobo: 1000, refundedKobo: 300 });
+  });
+
+  test("[deferred-refund] {L3} out-of-order partial refunds, duplicate retries, then success, then a final refund", () => {
+    const l = createLedger({ expectedAmounts: { r: 1000 } });
+    l.handle(E("a", R, "r", 300));
+    expect(l.handle(E("a", R, "r", 300)).reason).toBe("duplicate");
+    l.handle(E("b", R, "r", 500));
+    l.handle(E("c", R, "r", 400)); // 300 + 500 + 400 > 1000: dropped when applied
+    expect(l.handle(E("s1", S, "r", 1000))).toEqual({ applied: true, reason: null, status: "partially_refunded" });
+    expect(l.get("r").refundedKobo).toBe(800);
+    expect(l.handle(E("s1", S, "r", 1000))).toEqual({ applied: false, reason: "duplicate", status: "partially_refunded" });
+    expect(l.handle(E("d", R, "r", 200))).toEqual({ applied: true, reason: null, status: "refunded" });
+    expect(l.get("r")).toEqual({ reference: "r", status: "refunded", amountKobo: 1000, refundedKobo: 1000 });
+  });
+
+  test("[deferred-refund] {L3} a deferred refund that overflows is dropped but a later smaller one still applies", () => {
+    const l = createLedger();
+    l.handle(E("a", R, "r", 900));
+    l.handle(E("b", R, "r", 300));
+    l.handle(E("c", R, "r", 50));
+    l.handle(E("s", S, "r", 1000));
+    expect(l.get("r")).toEqual({ reference: "r", status: "partially_refunded", amountKobo: 1000, refundedKobo: 950 });
+  });
+
+  test("[deferred-refund] {L3} a refund deferred before a failed charge is still applied by a later success", () => {
+    const l = createLedger();
+    l.handle(E("a", R, "r", 200));
+    expect(l.handle(E("f", F, "r", 0)).status).toBe("failed");
+    expect(l.handle(E("s", S, "r", 1000))).toEqual({ applied: true, reason: null, status: "partially_refunded" });
+    expect(l.get("r").refundedKobo).toBe(200);
+  });
+
+  test("[amount-mismatch] {L3} deferred refunds are discarded on a mismatch and a later success is terminal", () => {
+    const l = createLedger({ expectedAmounts: { r: 1000 } });
+    l.handle(E("a", R, "r", 200));
+    expect(l.handle(E("s1", S, "r", 500))).toEqual({ applied: true, reason: "amount-mismatch", status: "amount_mismatch" });
+    expect(l.handle(E("s2", S, "r", 1000))).toEqual({ applied: false, reason: "terminal", status: "amount_mismatch" });
+    expect(l.get("r")).toEqual({ reference: "r", status: "amount_mismatch", amountKobo: 1000, refundedKobo: 0 });
+  });
+
+  test("[invalid-amount] {L3} an invalid refund does not burn its id: the corrected retry is applied", () => {
+    const l = createLedger();
+    l.handle(E("s", S, "r", 1000));
+    expect(l.handle(E("x", R, "r", 0))).toEqual({ applied: false, reason: "invalid-amount", status: "success" });
+    expect(l.handle(E("x", R, "r", 400))).toEqual({ applied: true, reason: null, status: "partially_refunded" });
+  });
+
+  test("[duplicate] {L3} event ids are global: reusing an id on another reference is a duplicate and creates nothing", () => {
+    const l = createLedger();
+    l.handle(E("g1", S, "r1", 100));
+    expect(l.handle(E("g1", S, "r2", 100))).toEqual({ applied: false, reason: "duplicate", status: null });
+    expect(l.get("r2")).toBeUndefined();
+  });
+
+  test("[fuzz-stream] {L3} 300 random webhook streams (duplicates, out-of-order, bad amounts) match the reference", () => {
+    const r = rng(1104);
+    const types = [S, S, F, A, R, R, R, "bogus"];
+    const amounts = [100, 250, 500, 1000, 1000, 0, -5, 2.5];
+    for (let i = 0; i < 300; i++) {
+      const refs = ["r1", "r2", "r3"];
+      const expected = {};
+      refs.forEach((x) => { if (r() < 0.6) expected[x] = [500, 1000][Math.floor(r() * 2)]; });
+      const a = createLedger({ expectedAmounts: { ...expected } });
+      const b = referenceLedger({ expectedAmounts: { ...expected } });
+      const ids = [];
+      for (let k = 0; k < 14; k++) {
+        const e = {
+          id: r() < 0.25 && ids.length ? ids[Math.floor(r() * ids.length)] : "e" + i + "_" + k,
+          reference: refs[Math.floor(r() * 3)], type: types[Math.floor(r() * types.length)],
+          amountKobo: amounts[Math.floor(r() * amounts.length)], createdAt: Math.floor(r() * 1000),
+        };
+        ids.push(e.id);
+        try {
+          expect(a.handle({ ...e })).toEqual(b.handle({ ...e }));
+          refs.forEach((x) => expect(a.get(x)).toEqual(b.get(x)));
+        } catch (err) {
+          err.message = `fuzz stream ${i} step ${k} event=${JSON.stringify(e)}\n` + err.message;
+          throw err;
+        }
+      }
+    }
+  });
+});

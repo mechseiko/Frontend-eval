@@ -112,3 +112,57 @@ describe("computeInvoice", () => {
     expect(() => computeInvoice(input)).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Hardening. {L2} = emerging-market edge cases, {L3} = adversarial. Randomized differential checks
+// compare against the reference implementation with a seeded generator, so every run is identical.
+import { computeInvoice as referenceInvoice } from "../__ref__/solution";
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const ri = (r, lo, hi) => lo + Math.floor(r() * (hi - lo + 1));
+
+function fuzzInvoice(r, maxPrice, maxQty) {
+  const n = ri(r, 0, 6);
+  const lines = Array.from({ length: n }, (_, i) => ({
+    sku: "s" + i,
+    unitPriceKobo: r() < 0.1 ? 0 : ri(r, 1, maxPrice),
+    qty: ri(r, 1, maxQty),
+    vatExempt: r() < 0.3,
+  }));
+  const subtotal = lines.reduce((a, l) => a + l.unitPriceKobo * l.qty, 0);
+  const mode = r();
+  const discountKobo = mode < 0.15 ? 0 : mode < 0.3 ? subtotal + ri(r, 0, 1000) : ri(r, 0, subtotal);
+  return { lines, discountKobo };
+}
+
+function expectSame(input, i) {
+  const want = referenceInvoice(JSON.parse(JSON.stringify(input)));
+  let got;
+  try {
+    got = computeInvoice(JSON.parse(JSON.stringify(input)));
+    expect(got).toEqual(want);
+  } catch (e) {
+    e.message = `fuzz case ${i} input=${JSON.stringify(input)}\n` + e.message;
+    throw e;
+  }
+}
+
+describe("computeInvoice hardening", () => {
+  test("[fuzz-kobo] {L2} 200 random invoices match the reference to the kobo", () => {
+    const r = rng(20261104);
+    for (let i = 0; i < 200; i++) expectSame(fuzzInvoice(r, 500000, 9), i);
+  });
+
+  test("[fuzz-large] {L3} 150 random invoices whose intermediate products exceed 2^53 stay exact", () => {
+    const r = rng(7);
+    for (let i = 0; i < 150; i++) expectSame(fuzzInvoice(r, 40000000000, 50), i);
+  });
+});

@@ -221,3 +221,133 @@ describe("createOptimisticStore", () => {
     expect(s.getState().n).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// Hardening. {L3} = concurrent optimistic writes whose confirm and rollback interleave, plus a seeded
+// randomized differential check against the reference.
+import { createOptimisticStore as referenceStore } from "../__ref__/solution";
+
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+describe("createOptimisticStore hardening", () => {
+  test("[rollback-middle] {L3} rolling back change 1 never overwrites the confirmed change 2", () => {
+    const s = createOptimisticStore({ n: 1 });
+    s.apply("a", add(10));
+    s.apply("b", mul(2));
+    expect(s.getState().n).toBe(22);
+    expect(s.confirm("b")).toBe(true);
+    expect(s.getState().n).toBe(12); // base 2, then a on top
+    expect(s.rollback("a")).toBe(true);
+    expect(s.getState()).toEqual({ n: 2 });
+  });
+
+  test("[confirm-order] {L3} confirmations fold into the base in confirm order, not apply order", () => {
+    const s = createOptimisticStore({ n: 1 });
+    s.apply("a", add(10));
+    s.apply("b", mul(2));
+    s.confirm("b");
+    s.confirm("a");
+    expect(s.getState()).toEqual({ n: 12 }); // (1 * 2) + 10, not (1 + 10) * 2
+  });
+
+  test("[rollback-middle] {L3} three concurrent writes: roll back the middle, confirm the last, then the first", () => {
+    const s = createOptimisticStore({ list: [] });
+    const p = (x) => (st) => ({ ...st, list: [...st.list, x] });
+    s.apply("a", p("a"));
+    s.apply("b", p("b"));
+    s.apply("c", p("c"));
+    expect(s.rollback("b")).toBe(true);
+    expect(s.getState().list).toEqual(["a", "c"]);
+    s.confirm("c");
+    expect(s.getState().list).toEqual(["c", "a"]);
+    s.confirm("a");
+    expect(s.getState().list).toEqual(["c", "a"]);
+  });
+
+  test("[notify] {L3} exactly one notification per state-changing call across an interleaved sequence", () => {
+    const s = createOptimisticStore({ n: 0 });
+    const l = jest.fn();
+    s.subscribe(l);
+    s.apply("a", add(1));
+    s.apply("b", add(2));
+    expect(() => s.apply("a", add(5))).toThrow();
+    expect(s.rollback("zz")).toBe(false);
+    expect(s.confirm("zz")).toBe(false);
+    s.confirm("a");
+    s.rollback("b");
+    expect(l).toHaveBeenCalledTimes(4);
+  });
+
+  test("[bad-update] {L3} a throwing update after other pending changes leaves those changes intact", () => {
+    const s = createOptimisticStore({ n: 0 });
+    s.apply("a", add(1));
+    const before = s.getState();
+    const l = jest.fn();
+    s.subscribe(l);
+    expect(() => s.apply("b", () => { throw new Error("nope"); })).toThrow("nope");
+    expect(s.getState()).toBe(before);
+    expect(l).not.toHaveBeenCalled();
+    expect(s.rollback("b")).toBe(false);
+    expect(s.rollback("a")).toBe(true);
+    expect(s.getState()).toEqual({ n: 0 });
+  });
+
+  test("[memo] {L3} no-op calls never change the state reference", () => {
+    const s = createOptimisticStore({ n: 0 });
+    s.apply("a", add(1));
+    const ref = s.getState();
+    s.rollback("zz");
+    s.confirm("zz");
+    try { s.apply("a", add(9)); } catch { /* expected */ }
+    expect(s.getState()).toBe(ref);
+  });
+
+  test("[fuzz-ops] {L3} 300 random apply/confirm/rollback sequences match the reference state, results and notifications", () => {
+    const r = rng(909);
+    const updates = [
+      (k) => (st) => ({ ...st, n: st.n + k }),
+      (k) => (st) => ({ ...st, n: st.n * (k % 4) }),
+      (k) => (st) => ({ ...st, list: [...st.list, k] }),
+      () => () => { throw new Error("bad update"); },
+    ];
+    for (let i = 0; i < 300; i++) {
+      const init = { n: Math.floor(r() * 5), list: [] };
+      const a = createOptimisticStore(init);
+      const b = referenceStore(init);
+      const ca = jest.fn();
+      const cb = jest.fn();
+      a.subscribe(ca);
+      b.subscribe(cb);
+      const ids = ["p", "q", "r", "s"];
+      for (let k = 0; k < 25; k++) {
+        const op = r();
+        const id = ids[Math.floor(r() * ids.length)];
+        const fn = updates[Math.floor(r() * (r() < 0.9 ? 3 : 4))](Math.floor(r() * 7));
+        const run = (st) => {
+          try {
+            return op < 0.5 ? { ret: st.apply(id, fn) } : op < 0.75 ? { ret: st.confirm(id) } : { ret: st.rollback(id) };
+          } catch (e) { return { threw: true }; }
+        };
+        const ra = a.getState();
+        const rb = b.getState();
+        try {
+          expect(run(a)).toEqual(run(b));
+          expect(a.getState()).toEqual(b.getState());
+          expect(a.getState() === ra).toBe(b.getState() === rb);
+          expect(ca.mock.calls.length).toBe(cb.mock.calls.length);
+        } catch (e) {
+          e.message = `fuzz sequence ${i} step ${k} (op ${op.toFixed(2)} id ${id})\n` + e.message;
+          throw e;
+        }
+      }
+    }
+  });
+});

@@ -29,9 +29,11 @@ Nine self-contained tasks. Each gives a model a written specification and a stub
 - **Objective graders.** Hidden Jest tests only. No LLM judge.
 - **Tagged checks.** Every test title carries a tag such as `[stale-response]` or `[vat-rounding]`. Reports show which kinds of requirement models miss, not only a pass rate.
 - **Validated graders.** `python run_eval.py selftest` proves, for every task, that the reference solution passes 100% of checks, the untouched stub fails, and each plausible-but-wrong solution in `tasks/*/wrong/` is rejected. Output is saved to `results/selftest.json`.
+- **Difficulty tiers.** Every check is L1 (happy path, unmarked), L2 (emerging-market edge cases) or L3 (adversarial, interacting rules), marked `{L2}` / `{L3}` in the test title. Reports show the pass rate per tier, so you can see where a model's reasoning breaks even when it passes the basics. Tasks t01, t03, t05 and t09 also carry **seeded randomized differential checks** (200 to 300 random cases compared with the reference implementation), which catch rare ordering and rounding drift without anyone guessing the case.
 - **Partial credit and strict credit.** A task is *fully passed* only if every check passes. The mean share of checks passed is reported alongside.
 - **Timezone-hardened.** Tests run under `America/Los_Angeles` (DST) regardless of your machine.
-- **Reproducible offline.** Raw model answers are cached in `results/raw/`. `python run_eval.py run --offline` re-grades them with no API key.
+- **Reproducible offline.** Raw model answers are cached in `results/raw/`. `python run_eval.py run --offline` re-grades them with no API key and no network (add `--jobs N` to grade in parallel).
+- **Invalid runs are not failures.** An answer that is empty (a reasoning model spent its whole budget thinking) or cut off mid code block is flagged `INVALID`, excluded from every score and listed in the report, so a too-small `max_tokens` cannot masquerade as a model weakness.
 
 ## Run it
 
@@ -49,6 +51,22 @@ python run_eval.py run --models models.json --runs 1
 python run_eval.py report               # writes results/report.md and results/report.html
 python run_eval.py run --offline        # re-grade cached answers without any API call
 ```
+
+### Multi-agent consensus gauntlet
+
+```bash
+python run_eval.py run --models models.json --consensus --drafter claude-sonnet --reviewer gpt-4o
+```
+
+The drafter writes a solution (its cached answer is reused), the reviewer critiques it against every numbered rule and proposes a fix, and the drafter merges. The merged code is graded by the same hidden tests. The report lists checks that the drafter, the reviewer **and** the consensus all still fail: blind spots that debate did not remove.
+
+### Bring your own agent
+
+```bash
+python run_eval.py battle --endpoint http://localhost:18789 --name MechAgent
+```
+
+Runs any HTTP agent through every task and writes a shareable `results/battle_<name>.html` scorecard of the production traps it walked into. The default protocol is an OpenAI-style `/v1/chat/completions` endpoint (`--model`, `--api-key-env` optional). For anything else use `--protocol simple`: the runner POSTs `{"prompt", "system"}` and accepts JSON with `text`, `response` or `output`, or a plain-text reply. Battle results are saved in `results/battles/` and also appear in the main report.
 
 Model-written code runs on your machine inside `sandbox/`. For isolation use the optional `Dockerfile`.
 
@@ -76,8 +94,9 @@ ANALYSIS_PLACEHOLDER
 ## Layout
 
 ```
-run_eval.py          runner: selftest, run, report, grade-file, show-prompt
+run_eval.py          runner: selftest, run (--offline, --consensus), battle, report, grade-file, show-prompt
 tasks/<id>/          prompt.md, starter/, tests/ (hidden), reference/, wrong/, meta.json
 results/             runs.json, raw/ (cached answers), report.md, report.html, selftest.json
 tools/mock_server.py local mock model used to test the pipeline without keys
+tools/report_template.html  template for the interactive report (tag filters, diffs vs reference, dark mode)
 ```

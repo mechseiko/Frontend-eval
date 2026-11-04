@@ -6,5 +6,6 @@
   "target": "src/solution.js",
   "why_it_matters": "Checkout totals must match the payment gateway to the kobo. Floating-point math and drifting rounding cause failed or disputed payments.",
   "expected_failure_mode": "Models round per total instead of per line, or allocate discounts with Math.round so allocations do not sum to the discount.",
-  "n_tests": 16
+  "n_tests": 18,
+  "differential": true
 }

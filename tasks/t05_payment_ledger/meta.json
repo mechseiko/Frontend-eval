@@ -6,5 +6,6 @@
   "target": "src/solution.js",
   "why_it_matters": "Payment gateways deliver webhooks more than once and out of order. Mishandling them marks unpaid orders as paid, double-refunds, or hides amount tampering.",
   "expected_failure_mode": "Models order events by timestamp, forget to verify the paid amount, or drop refunds that arrive before the charge success.",
-  "n_tests": 33
+  "n_tests": 41,
+  "differential": true
 }

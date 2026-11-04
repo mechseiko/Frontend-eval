@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FieldReady-FE report</title>
+<style>
+:root{--bg:#0f1b1e;--panel:#162529;--line:#284043;--fg:#e6ece8;--mut:#92a8a3;--acc:#7cc4d8;--ok:#7bd3a8;--mid:#e7c46a;--bad:#f08a6b;--okbg:#1b3a30;--midbg:#3b3419;--badbg:#42241d;--code:#0b1416;--add:#17402f;--del:#4a2320}
+:root[data-theme=light]{--bg:#f6f7f4;--panel:#fff;--line:#d5dcd8;--fg:#142022;--mut:#586a66;--acc:#0b6a85;--ok:#17603f;--mid:#7a5b05;--bad:#a23a1c;--okbg:#dff2e8;--midbg:#f8efc8;--badbg:#f9ddd4;--code:#eef1ee;--add:#d3efdd;--del:#f7d6cf}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Segoe UI",Helvetica,Arial,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+h1{font:600 28px/1.2 Georgia,"Iowan Old Style",serif;margin:0 0 4px}
+h2{font:600 18px/1.3 Georgia,serif;margin:36px 0 8px}
+p,.mut{color:var(--mut)}
+a,button{font:inherit}
+button{cursor:pointer;color:inherit}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.theme{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 12px}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;background:var(--panel);border:1px solid var(--line)}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+thead th{font-weight:600;border-bottom:2px solid var(--acc);white-space:nowrap}
+small{display:block;color:var(--mut);font-weight:400}
+.tid,code,pre{font-family:ui-monospace,Consolas,Menlo,monospace;font-size:13px}
+td.ok{background:var(--okbg);color:var(--ok)}td.mid{background:var(--midbg);color:var(--mid)}td.bad{background:var(--badbg);color:var(--bad)}td.na{color:var(--mut)}
+td small{color:inherit;opacity:.8}
+td.cell{cursor:pointer}td.cell:hover{filter:brightness(1.15)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 11px;font-size:13px}
+.chip[aria-pressed=true]{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.chip i{font-style:normal;opacity:.7;margin-left:6px}
+.hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.stat b{display:block;font:600 26px/1.1 Georgia,serif}
+.detail{background:var(--panel);border:1px solid var(--acc);border-radius:8px;padding:14px 16px;margin-top:14px}
+.detail h3{margin:0 0 6px;font-size:16px}
+.tabs{display:flex;gap:6px;margin:10px 0}
+.tab{border:1px solid var(--line);background:transparent;border-radius:6px;padding:4px 12px}
+.tab[aria-selected=true]{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+pre{background:var(--code);border:1px solid var(--line);border-radius:6px;padding:10px 0;overflow:auto;max-height:520px;margin:0}
+pre .l{display:block;padding:0 12px;white-space:pre}
+pre .add{background:var(--add)}pre .del{background:var(--del)}pre .hunk{color:var(--acc)}pre .hit{background:var(--del);box-shadow:inset 3px 0 var(--bad)}
+.n{display:inline-block;width:3.2em;color:var(--mut);user-select:none}
+ul.fails{margin:6px 0;padding-left:18px}ul.fails li{margin:3px 0}
+.tag{font-family:ui-monospace,Consolas,monospace;font-size:12px;border:1px solid var(--line);border-radius:4px;padding:0 5px;color:var(--acc)}
+.lv{font-size:12px;border-radius:4px;padding:0 5px;margin-right:4px}.lv2{background:var(--midbg);color:var(--mid)}.lv3{background:var(--badbg);color:var(--bad)}.lv1{background:var(--okbg);color:var(--ok)}
+.link{background:none;border:0;color:var(--acc);text-decoration:underline;padding:0}
+.msg{color:var(--mut);font-size:12.5px;white-space:pre-wrap}
+@media (prefers-reduced-motion:no-preference){.detail{animation:in .18s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}}}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const DATA = __DATA__;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (x) => Math.round(100 * x) + "%";
+const state = { tags: new Set(), levels: new Set(), open: null, tab: "diff" };
+
+const excluded = DATA.runs.filter((r) => r.invalid), runs = DATA.runs.filter((r) => !r.invalid), tasks = DATA.tasks, taskById = Object.fromEntries(tasks.map((t) => [t.id, t]));
+const models = [...new Set(runs.map((r) => r.model))];
+const lvOf = (t) => t.lv || 1;
+const passRate = (list) => (list.length ? list.filter((t) => t.s === "passed").length / list.length : null);
+const cls = (p) => (p === null ? "na" : p === 1 ? "ok" : p >= 0.6 ? "mid" : "bad");
+const runKey = (r) => r.model + "|" + r.task + "|" + r.run;
+
+function modelStats(m) {
+  const rs = runs.filter((r) => r.model === m);
+  const tests = rs.flatMap((r) => r.tests);
+  const byTask = {};
+  rs.forEach((r) => (byTask[r.task] = byTask[r.task] || []).push(r));
+  const taskIds = Object.keys(byTask);
+  return {
+    full: taskIds.reduce((a, t) => a + byTask[t].filter((r) => r.full).length / byTask[t].length, 0), n: taskIds.length,
+    mean: rs.length ? rs.reduce((a, r) => a + (r.total ? r.passed / r.total : 0), 0) / rs.length : 0,
+    lv: [1, 2, 3].map((l) => passRate(tests.filter((t) => lvOf(t) === l))),
+    lat: rs.length ? rs.reduce((a, r) => a + (r.latency || 0), 0) / rs.length : 0,
+    cost: rs.reduce((a, r) => a + (r.cost ?? (r.price_in != null ? ((r.usage.prompt_tokens || 0) * r.price_in + (r.usage.completion_tokens || 0) * r.price_out) / 1e6 : 0)), 0),
+  };
+}
+const cellFor = (m, tid) => {
+  const rs = runs.filter((r) => r.model === m && r.task === tid);
+  if (!rs.length) return null;
+  return { rate: rs.filter((r) => r.full).length / rs.length, score: rs.reduce((a, r) => a + (r.total ? r.passed / r.total : 0), 0) / rs.length, run: rs[0] };
+};
+const matches = (t) => (!state.tags.size || state.tags.has(t.tag)) && (!state.levels.size || state.levels.has(lvOf(t)));
+
+function tagList() {
+  const m = {};
+  runs.forEach((r) => r.tests.forEach((t) => { const d = (m[t.tag] = m[t.tag] || { fail: 0, n: 0 }); d.n++; if (t.s !== "passed") d.fail++; }));
+  return Object.entries(m).sort((a, b) => b[1].fail - a[1].fail || a[0].localeCompare(b[0]));
+}
+
+function render() {
+  const focus = DATA.focus;
+  let h = `<header><div><h1>${esc(DATA.title)}</h1><p>Hidden Jest graders, no LLM judge. Generated ${esc(DATA.generated)}. ${runs.length} graded runs.</p></div><button class="theme" id="theme">Switch theme</button></header>`;
+
+  if (focus) {
+    const s = modelStats(focus), bad = tasks.filter((t) => runs.some((r) => r.model === focus && r.task === t.id && !r.full));
+    h += `<div class="hero"><div class="stat"><b>${s.full} / ${s.n}</b>tasks fully passed</div><div class="stat"><b>${pct(s.mean)}</b>checks passed</div>` +
+      [1, 2, 3].map((l, i) => `<div class="stat"><b>${s.lv[i] === null ? "-" : pct(s.lv[i])}</b>${["L1 happy path", "L2 edge cases", "L3 adversarial"][i]}</div>`).join("") + `</div>`;
+    h += `<h2>Production traps this agent walked into</h2>` + (bad.length ? `<ul class="fails">` + bad.map((t) => {
+      const tg = [...new Set(runs.filter((r) => r.model === focus && r.task === t.id).flatMap((r) => r.tests.filter((x) => x.s !== "passed").map((x) => x.tag)))];
+      return `<li><b>${esc(t.title)}</b> <span class="mut">${esc(t.expected)}</span><br>${tg.slice(0, 10).map((x) => `<span class="tag">${esc(x)}</span>`).join(" ")}</li>`;
+    }).join("") + `</ul>` : `<p>None. Every check passed.</p>`);
+  }
+
+  if (excluded.length) h += `<div class="detail"><b>${excluded.length} run(s) excluded from every score.</b> <span class="mut">They were empty or cut off, so they are not model failures: ` + excluded.map((r) => `${esc(r.model)} on ${esc(r.task.slice(0, 3))} (${esc(r.invalid)})`).join("; ") + `.</span></div>`;
+  h += `<h2>Summary by model</h2><div class="wrap"><table><thead><tr><th>Model</th><th>Tasks fully passed</th><th>Checks passed</th><th>L1 happy path</th><th>L2 edge cases</th><th>L3 adversarial</th><th>Avg latency</th><th>Est. cost</th></tr></thead><tbody>` +
+    models.map((m) => {
+      const s = modelStats(m), c = runs.find((r) => r.model === m);
+      const tagLabel = c.consensus ? ` <span class="tag">consensus</span>` : c.byoa ? ` <span class="tag">your agent</span>` : "";
+      const lc = (p) => `<td class="${cls(p)}">${p === null ? "-" : pct(p)}</td>`;
+      return `<tr><th>${esc(m)}${tagLabel}</th><td>${s.full.toFixed(1)} / ${s.n}</td><td>${pct(s.mean)}</td>${s.lv.map(lc).join("")}<td>${s.lat.toFixed(1)}s</td><td>$${s.cost.toFixed(3)}</td></tr>`;
+    }).join("") + `</tbody></table></div>`;
+
+  const tl = tagList();
+  h += `<h2>Filter by requirement</h2><p>Pick tags or levels to see which models missed those checks.</p><div class="chips" role="group" aria-label="Levels">` +
+    [1, 2, 3].map((l) => `<button class="chip" data-lv="${l}" aria-pressed="${state.levels.has(l)}">${["L1 happy path", "L2 edge cases", "L3 adversarial"][l - 1]}</button>`).join("") + `</div><div class="chips" role="group" aria-label="Tags">` +
+    tl.map(([t, d]) => `<button class="chip" data-tag="${esc(t)}" aria-pressed="${state.tags.has(t)}">${esc(t)}<i>${d.fail ? d.fail + " failed" : "all pass"}</i></button>`).join("") + `</div>`;
+
+  if (state.tags.size || state.levels.size) {
+    const rows = {};
+    runs.forEach((r) => r.tests.forEach((t) => { if (matches(t)) { const k = r.task + "\u0000" + t.t; ((rows[k] = rows[k] || { task: r.task, title: t.t, tag: t.tag, lv: lvOf(t), by: {} }).by[r.model] = rows[k].by[r.model] || []).push({ ok: t.s === "passed", r }); } }));
+    const list = Object.values(rows).filter((x) => Object.values(x.by).some((a) => a.some((y) => !y.ok)));
+    h += `<div class="wrap"><table><thead><tr><th>Check</th>${models.map((m) => `<th>${esc(m)}</th>`).join("")}</tr></thead><tbody>` +
+      (list.length ? list.map((x) => `<tr><td><span class="lv lv${x.lv}">L${x.lv}</span><span class="tag">${esc(x.tag)}</span> <code>${esc(x.task.slice(0, 3))}</code> ${esc(x.title.replace(/\[[a-z0-9-]+\]\s*|\{L\d\}\s*/g, ""))}</td>` +
+        models.map((m) => { const a = x.by[m]; if (!a) return `<td class="na">-</td>`; const bad = a.filter((y) => !y.ok); return bad.length ? `<td class="bad"><button class="link" data-open="${esc(runKey(bad[0].r))}">failed</button></td>` : `<td class="ok">passed</td>`; }).join("") + `</tr>`).join("")
+        : `<tr><td colspan="${models.length + 1}" class="ok">Every model passed the selected checks.</td></tr>`) + `</tbody></table></div>`;
+  }
+
+  h += `<h2>Task grid</h2><p>Share of runs where every check passed, with the share of checks passed. Select a cell to inspect the run.</p><div class="wrap"><table><thead><tr><th>Task</th><th>Category</th>${models.map((m) => `<th>${esc(m)}</th>`).join("")}</tr></thead><tbody>` +
+    tasks.map((t) => `<tr><th><span class="tid">${esc(t.id)}</span><small>${esc(t.title)}</small></th><td>${esc(t.category)}</td>` + models.map((m) => {
+      const c = cellFor(m, t.id); if (!c) return `<td class="na">-</td>`;
+      const k = c.rate === 1 ? "ok" : c.score >= 0.6 ? "mid" : "bad";
+      return `<td class="cell ${k}" tabindex="0" role="button" data-open="${esc(runKey(c.run))}"><b>${pct(c.rate)}</b><small>${pct(c.score)} of checks</small></td>`;
+    }).join("") + `</tr>`).join("") + `</tbody></table></div><div id="detail"></div>`;
+
+  // shared blind spots + consensus
+  const plain = runs.filter((r) => !r.consensus), by = {};
+  plain.forEach((r) => r.tests.forEach((t) => { const k = r.task + "\u0000" + t.t; ((by[k] = by[k] || {})[r.model] = by[k][r.model] || []).push(t.s === "passed"); }));
+  const blind = Object.entries(by).filter(([, per]) => Object.keys(per).length >= 2 && Object.values(per).every((a) => !a.some(Boolean)));
+  if (blind.length && !focus) h += `<h2>Shared blind spots</h2><p>Checks that every model that attempted the task failed.</p><ul class="fails">` + blind.slice(0, 20).map(([k]) => { const [task, title] = k.split("\u0000"); return `<li><code>${esc(task.slice(0, 3))}</code> ${esc(title)}</li>`; }).join("") + `</ul>`;
+  [...new Set(runs.filter((r) => r.consensus).map((r) => r.model))].forEach((cm) => {
+    const c = runs.find((r) => r.model === cm).consensus, st = {};
+    runs.filter((r) => [c.drafter, c.reviewer, cm].includes(r.model)).forEach((r) => r.tests.forEach((t) => ((st[r.task + "\u0000" + t.t] = st[r.task + "\u0000" + t.t] || {})[r.model] = t.s === "passed")));
+    const all = Object.entries(st).filter(([, v]) => v[c.drafter] === false && v[c.reviewer] === false && v[cm] === false);
+    const fixed = Object.values(st).filter((v) => v[cm] === true && (v[c.drafter] === false || v[c.reviewer] === false)).length;
+    h += `<h2>Consensus gauntlet: ${esc(cm)}</h2><p>${esc(c.drafter)} drafts, ${esc(c.reviewer)} reviews and refines, ${esc(c.drafter)} merges. The consensus fixed ${fixed} checks, but ${all.length} checks stayed failed for the drafter, the reviewer and the consensus: a blind spot they share.</p><ul class="fails">` +
+      all.slice(0, 20).map(([k]) => { const [task, title] = k.split("\u0000"); return `<li><code>${esc(task.slice(0, 3))}</code> ${esc(title)}</li>`; }).join("") + `</ul>`;
+  });
+
+  if (DATA.selftest.length && !focus) {
+    const ok = DATA.selftest.filter((e) => e.reference.passed === e.reference.total && e.starter.passed < e.starter.total && e.wrong.every((w) => w.passed < w.total)).length;
+    h += `<h2>Grader validation</h2><p>${ok} of ${DATA.selftest.length} tasks verified: the reference passes every check, the untouched stub fails, and ${DATA.selftest.reduce((a, e) => a + e.wrong.length, 0)} plausible-but-wrong solutions are rejected. Re-run with <code>python run_eval.py selftest</code>.</p>`;
+  }
+  $("#app").innerHTML = h;
+  renderDetail();
+}
+
+function renderDetail() {
+  const box = $("#detail"); if (!box) return;
+  const r = runs.find((x) => runKey(x) === state.open);
+  if (!r) { box.innerHTML = ""; return; }
+  const fails = r.tests.filter((t) => t.s !== "passed"), hits = new Set(fails.map((t) => t.line).filter(Boolean));
+  const tab = r.code ? state.tab : "fails";
+  const diff = (r.diff || "").split("\n").map((l) => `<span class="l ${l.startsWith("+") && !l.startsWith("+++") ? "add" : l.startsWith("-") && !l.startsWith("---") ? "del" : l.startsWith("@@") ? "hunk" : ""}">${esc(l) || " "}</span>`).join("");
+  const code = (r.code || "").split("\n").map((l, i) => `<span class="l ${hits.has(i + 1) ? "hit" : ""}"><span class="n">${i + 1}</span>${esc(l) || " "}</span>`).join("");
+  box.innerHTML = `<div class="detail"><h3>${esc(r.model)} on ${esc(r.task)} (run ${r.run}): ${r.passed}/${r.total} checks</h3>
+    <div class="tabs" role="tablist"><button class="tab" role="tab" data-tab="fails" aria-selected="${tab === "fails"}">Failed checks (${fails.length})</button>` +
+    (r.diff ? `<button class="tab" role="tab" data-tab="diff" aria-selected="${tab === "diff"}">Diff vs reference</button>` : "") +
+    (r.code ? `<button class="tab" role="tab" data-tab="code" aria-selected="${tab === "code"}">Model code</button>` : "") + `</div>` +
+    (tab === "fails" ? (fails.length ? `<ul class="fails">` + fails.map((t) => `<li><span class="lv lv${lvOf(t)}">L${lvOf(t)}</span><span class="tag">${esc(t.tag)}</span> ${esc(t.t.replace(/\[[a-z0-9-]+\]\s*|\{L\d\}\s*/g, ""))}${t.msg ? `<div class="msg">${esc(t.msg.split("\n").slice(0, 3).join("\n"))}</div>` : ""}</li>`).join("") + `</ul>` : `<p>All checks passed.${r.error ? " " + esc(r.error) : ""}</p>`)
+      : tab === "diff" ? `<p>Unified diff of the model's file against the reference solution. Lines starting with + are the model's; lines starting with - are missing from it. Different style is not always a bug, so read it with the failed checks.</p><pre>${diff}</pre>`
+      : `<p>${hits.size ? "Lines the failing checks point to (from the Jest stack) are marked." : "No failing check pointed into this file."}</p><pre>${code}</pre>`) + `</div>`;
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tag],[data-lv],[data-open],[data-tab],#theme"); if (!t) return;
+  if (t.id === "theme") { const d = document.documentElement; d.dataset.theme = d.dataset.theme === "dark" ? "light" : "dark"; return; }
+  if (t.dataset.tag) { state.tags.has(t.dataset.tag) ? state.tags.delete(t.dataset.tag) : state.tags.add(t.dataset.tag); render(); return; }
+  if (t.dataset.lv) { const l = +t.dataset.lv; state.levels.has(l) ? state.levels.delete(l) : state.levels.add(l); render(); return; }
+  if (t.dataset.tab) { state.tab = t.dataset.tab; renderDetail(); return; }
+  if (t.dataset.open) { state.open = t.dataset.open; state.tab = "fails"; renderDetail(); const dt = $("#detail"); if (dt.scrollIntoView) dt.scrollIntoView({ block: "nearest" }); }
+});
+document.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset && e.target.dataset.open) { e.preventDefault(); e.target.click(); } });
+render();
+</script>
+</body>
+</html>
