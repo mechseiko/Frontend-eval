@@ -13,15 +13,6 @@ dist/
 *.key
 *.pem
 
-# Reference & trap solutions are part of the submission ZIP; they are ignored in git only
-# so the repository can be shared without handing the answers to a model under test.
-tasks/**/reference/
-tasks/**/wrong/
-
-# Internal scratch: playbooks, drafts, personal notes. Never part of the submission ZIP.
-_internal/
-claude.md
-
 # IDE / OS files
 .vscode/
 .idea/
