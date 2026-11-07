@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function createLedger({ expectedAmounts = {} } = {}) {\n  const handledIds = new Set();\n  const transactions = {};\n  const deferredRefunds = {};\n\n  function handle(event) {\n    if (!event || ![\"charge.success\", \"charge.failed\", \"charge.abandoned\", \"refund.processed\"].includes(event.type)) {\n      return { applied: false, reason: \"unknown-type\", status: null };\n    }\n\n    if (handledIds.has(event.id)) {\n      const status = transactions[event.reference]?.status || null;\n      return { applied: false, reason: \"duplicate\", status };\n    }\n\n    if ((event.type === \"charge.success\" || event.type === \"refund.processed\") && (!Number.isInteger(event.amountKobo) || event.amountKobo <= 0)) {\n      const status = transactions[event.reference]?.status || null;\n      return { applied: false, reason: \"invalid-amount\", status };\n    }\n\n    handledIds.add(event.id);\n\n    if (!transactions[event.reference]) {\n      transactions[event.reference] = {\n        reference: event.reference,\n        status: \"pending\",\n        amountKobo: expectedAmounts[event.reference] || null,\n        refundedKobo: 0\n      };\n    }\n\n    const transaction = transactions[event.reference];\n\n    switch (event.type) {\n      case \"charge.success\":\n        if ([\"success\", \"partially_refunded\", \"refunded\", \"amount_mismatch\"].includes(transaction.status)) {\n          return { applied: false, reason: \"terminal\", status: transaction.status };\n        }\n        if (expectedAmounts[event.reference] !== undefined && expectedAmounts[event.reference] !== event.amountKobo) {\n          transaction.status = \"amount_mismatch\";\n          return { applied: true, reason: \"amount-mismatch\", status: transaction.status };\n        }\n        transaction.status = \"success\";\n        transaction.amountKobo = transaction.amountKobo || event.amountKobo;\n        applyDeferredRefunds(transaction);\n        return { applied: true, reason: null, status: transaction.status };\n\n      case \"charge.failed\":\n        if (transaction.status === \"pending\" || transaction.status === \"abandoned\") {\n          transaction.status = \"failed\";\n          return { applied: true, reason: null, status: transaction.status };\n        }\n        return { applied: false, reason: \"stale\", status: transaction.status };\n\n      case \"charge.abandoned\":\n        if (transaction.status === \"pending\") {\n          transaction.status = \"abandoned\";\n          return { applied: true, reason: null, status: transaction.status };\n        }\n        return { applied: false, reason: \"stale\", status: transaction.status };\n\n      case \"refund.processed\":\n        if (transaction.status === \"success\" || transaction.status === \"partially_refunded\") {\n          const newRefundedKobo = transaction.refundedKobo + event.amountKobo;\n          if (newRefundedKobo > transaction.amountKobo) {\n            return { applied: false, reason: \"over-refund\", status: transaction.status };\n          }\n          transaction.refundedKobo = newRefundedKobo;\n          transaction.status = newRefundedKobo === transaction.amountKobo ? \"refunded\" : \"partially_refunded\";\n          return { applied: true, reason: null, status: transaction.status };\n        }\n        if (transaction.status === \"refunded\") {\n          return { applied: false, reason: \"over-refund\", status: transaction.status };\n        }\n        if (transaction.status === \"pending\" || transaction.status === \"abandoned\" || transaction.status === \"failed\") {\n          if (!deferredRefunds[event.reference]) {\n            deferredRefunds[event.reference] = [];\n          }\n          deferredRefunds[event.reference].push(event);\n          return { applied: false, reason: \"deferred\", status: transaction.status };\n        }\n        return { applied: false, reason: \"terminal\", status: transaction.status };\n    }\n  }\n\n  function applyDeferredRefunds(transaction) {\n    const refunds = deferredRefunds[transaction.reference] || [];\n    for (const refundEvent of refunds) {\n      const newRefundedKobo = transaction.refundedKobo + refundEvent.amountKobo;\n      if (newRefundedKobo <= transaction.amountKobo) {\n        transaction.refundedKobo = newRefundedKobo;\n        transaction.status = newRefundedKobo === transaction.amountKobo ? \"refunded\" : \"partially_refunded\";\n      }\n    }\n    delete deferredRefunds[transaction.reference];\n  }\n\n  function get(reference) {\n    return transactions[reference];\n  }\n\n  return { handle, get };\n}\n```",
+  "usage": {
+    "prompt_tokens": 1017,
+    "completion_tokens": 962,
+    "total_tokens": 1979,
+    "cost": 0.0121625,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0121625,
+      "upstream_inference_prompt_cost": 0.0025425,
+      "upstream_inference_completions_cost": 0.00962
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 5.3,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t05_payment_ledger",
+  "run": 1
+}

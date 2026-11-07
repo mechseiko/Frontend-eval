@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function computeInvoice({ lines, discountKobo = 0 }) {\n  if (!Array.isArray(lines)) {\n    throw new RangeError(\"lines must be an array\");\n  }\n  if (!Number.isInteger(discountKobo) || discountKobo < 0) {\n    throw new RangeError(\"discountKobo must be a non-negative integer\");\n  }\n\n  let invoiceSubtotal = 0;\n  const lineDetails = lines.map(line => {\n    const { sku, unitPriceKobo, qty, vatExempt } = line;\n    if (!Number.isInteger(unitPriceKobo) || unitPriceKobo < 0) {\n      throw new RangeError(\"unitPriceKobo must be a non-negative integer\");\n    }\n    if (!Number.isInteger(qty) || qty < 1) {\n      throw new RangeError(\"qty must be a positive integer\");\n    }\n\n    const lineSubtotal = unitPriceKobo * qty;\n    invoiceSubtotal += lineSubtotal;\n\n    return {\n      sku,\n      lineSubtotal,\n      vatExempt\n    };\n  });\n\n  const appliedDiscount = Math.min(discountKobo, invoiceSubtotal);\n\n  let totalAllocatedDiscount = 0;\n  const allocations = lineDetails.map(line => {\n    const fractionalAllocation = appliedDiscount * line.lineSubtotal / invoiceSubtotal;\n    const floorAllocation = Math.floor(fractionalAllocation);\n    totalAllocatedDiscount += floorAllocation;\n    return {\n      sku: line.sku,\n      floorAllocation,\n      remainder: fractionalAllocation - floorAllocation,\n      lineSubtotal: line.lineSubtotal,\n      vatExempt: line.vatExempt\n    };\n  });\n\n  const leftoverDiscount = appliedDiscount - totalAllocatedDiscount;\n  allocations.sort((a, b) => b.remainder - a.remainder || lines.indexOf(a) - lines.indexOf(b));\n\n  for (let i = 0; i < leftoverDiscount; i++) {\n    allocations[i].floorAllocation += 1;\n  }\n\n  let totalVatKobo = 0;\n  const computedLines = allocations.map(({ sku, floorAllocation, lineSubtotal, vatExempt }) => {\n    const netKobo = lineSubtotal - floorAllocation;\n    const lineVatKobo = vatExempt ? 0 : Math.round(netKobo * 0.075);\n    totalVatKobo += lineVatKobo;\n\n    return {\n      sku,\n      subtotalKobo: lineSubtotal,\n      discountKobo: floorAllocation,\n      netKobo,\n      vatKobo: lineVatKobo\n    };\n  });\n\n  const totalKobo = invoiceSubtotal - appliedDiscount + totalVatKobo;\n\n  return {\n    subtotalKobo: invoiceSubtotal,\n    discountKobo: appliedDiscount,\n    vatKobo: totalVatKobo,\n    totalKobo,\n    lines: computedLines\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 637,
+    "completion_tokens": 591,
+    "total_tokens": 1228,
+    "cost": 0.0075025,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0075025,
+      "upstream_inference_prompt_cost": 0.0015925,
+      "upstream_inference_completions_cost": 0.00591
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 7.9,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t01_invoice_vat",
+  "run": 1
+}

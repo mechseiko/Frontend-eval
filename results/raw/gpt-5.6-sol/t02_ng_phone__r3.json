@@ -1,0 +1,22 @@
+{
+  "text": "```js\nfunction removeCountryTrunkDigit(value) {\n  if (value.startsWith(\"00\")) {\n    return null;\n  }\n\n  return value.startsWith(\"0\") ? value.slice(1) : value;\n}\n\nexport function normalizeNigerianPhone(input) {\n  if (typeof input !== \"string\") {\n    return null;\n  }\n\n  const cleaned = input.replace(/[\\s().-]/g, \"\");\n\n  if (!/^\\+?[0-9]+$/.test(cleaned)) {\n    return null;\n  }\n\n  let national;\n\n  if (cleaned.startsWith(\"+\")) {\n    if (!cleaned.startsWith(\"+234\")) {\n      return null;\n    }\n    national = removeCountryTrunkDigit(cleaned.slice(4));\n  } else if (cleaned.startsWith(\"00234\")) {\n    national = removeCountryTrunkDigit(cleaned.slice(5));\n  } else if (cleaned.startsWith(\"234\")) {\n    national = removeCountryTrunkDigit(cleaned.slice(3));\n  } else if (cleaned.startsWith(\"0\") && !cleaned.startsWith(\"00\")) {\n    national = cleaned.slice(1);\n  } else {\n    national = cleaned;\n  }\n\n  if (national === null || !/^[789][01][0-9]{8}$/.test(national)) {\n    return null;\n  }\n\n  return `+234${national}`;\n}\n\nexport function formatNigerianPhone(input) {\n  const normalized = normalizeNigerianPhone(input);\n\n  if (normalized === null) {\n    return null;\n  }\n\n  const national = normalized.slice(4);\n  return `0${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;\n}\n```",
+  "usage": {
+    "input_tokens": 648,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 1768,
+    "output_tokens_details": {
+      "reasoning_tokens": 1394
+    },
+    "total_tokens": 2416,
+    "prompt_tokens": 648,
+    "completion_tokens": 1768
+  },
+  "latency_s": 28.0,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t02_ng_phone",
+  "run": 3
+}

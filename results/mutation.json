@@ -1,0 +1,109 @@
+[
+ {
+  "task": "t01_invoice_vat",
+  "mutants": 15,
+  "killed": 12,
+  "invalid": 0,
+  "rate": 0.8,
+  "survivors": [
+   {
+    "line": 27,
+    "mutation": "- -> +",
+    "killed": false,
+    "by": []
+   },
+   {
+    "line": 14,
+    "mutation": "> -> >=",
+    "killed": false,
+    "by": []
+   },
+   {
+    "line": 27,
+    "mutation": "1 -> 0",
+    "killed": false,
+    "by": []
+   }
+  ]
+ },
+ {
+  "task": "t02_ng_phone",
+  "mutants": 15,
+  "killed": 15,
+  "invalid": 0,
+  "rate": 1.0,
+  "survivors": []
+ },
+ {
+  "task": "t03_resilient_fetch",
+  "mutants": 15,
+  "killed": 15,
+  "invalid": 0,
+  "rate": 1.0,
+  "survivors": []
+ },
+ {
+  "task": "t04_offline_queue",
+  "mutants": 15,
+  "killed": 15,
+  "invalid": 0,
+  "rate": 1.0,
+  "survivors": []
+ },
+ {
+  "task": "t05_payment_ledger",
+  "mutants": 15,
+  "killed": 15,
+  "invalid": 0,
+  "rate": 1.0,
+  "survivors": []
+ },
+ {
+  "task": "t08_business_days",
+  "mutants": 15,
+  "killed": 11,
+  "invalid": 0,
+  "rate": 0.7333333333333333,
+  "survivors": [
+   {
+    "line": 26,
+    "mutation": "+ -> -",
+    "killed": false,
+    "by": []
+   },
+   {
+    "line": 22,
+    "mutation": "- -> +",
+    "killed": false,
+    "by": []
+   },
+   {
+    "line": 11,
+    "mutation": "+ -> -",
+    "killed": false,
+    "by": []
+   },
+   {
+    "line": 24,
+    "mutation": "7 -> 6",
+    "killed": false,
+    "by": []
+   }
+  ]
+ },
+ {
+  "task": "t09_optimistic_store",
+  "mutants": 10,
+  "killed": 9,
+  "invalid": 0,
+  "rate": 0.9,
+  "survivors": [
+   {
+    "line": 21,
+    "mutation": "+ -> -",
+    "killed": false,
+    "by": []
+   }
+  ]
+ }
+]

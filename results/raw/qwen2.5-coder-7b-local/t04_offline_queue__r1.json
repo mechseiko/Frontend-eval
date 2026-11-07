@@ -1,0 +1,16 @@
+{
+  "text": "```js\nimport { getItem, setItem } from 'storage';\n\nexport function createOfflineQueue({ storage, send, key = \"queue:v1\", maxAttempts = 5 }) {\n  let queue = [];\n  let inFlight = null;\n\n  function loadQueue() {\n    try {\n      const storedQueue = getItem(key);\n      if (Array.isArray(storedQueue)) {\n        queue = storedQueue;\n      } else {\n        queue = [];\n      }\n    } catch (e) {\n      queue = [];\n    }\n  }\n\n  function saveQueue() {\n    setItem(key, JSON.stringify(queue));\n  }\n\n  function enqueue(action) {\n    if (queue.some(item => item.id === action.id)) return;\n    if (action.dedupeKey) {\n      const index = queue.findIndex(item => item.dedupeKey === action.dedupeKey);\n      if (index !== -1) {\n        queue[index] = { ...action, attempts: 0 };\n      } else {\n        queue.push(action);\n      }\n    } else {\n      queue.push(action);\n    }\n    saveQueue();\n  }\n\n  async function flush() {\n    if (inFlight) return inFlight;\n    inFlight = (async () => {\n      const sent = [];\n      const failed = [];\n      while (queue.length > 0) {\n        const item = queue.shift();\n        try {\n          const result = await send(item);\n          if (result.ok) {\n            sent.push(item.id);\n          } else if (!result.retryable) {\n            failed.push({ id: item.id, reason: \"rejected\" });\n          } else if (item.attempts >= maxAttempts) {\n            failed.push({ id: item.id, reason: \"max-attempts\" });\n          } else {\n            queue.unshift({ ...item, attempts: item.attempts + 1 });\n            break;\n          }\n        } catch (e) {\n          if (e.retryable) {\n            queue.unshift({ ...item, attempts: item.attempts + 1 });\n            break;\n          } else {\n            failed.push({ id: item.id, reason: \"rejected\" });\n          }\n        }\n      }\n      saveQueue();\n      inFlight = null;\n      return { sent, failed, remaining: queue.length };\n    })();\n    return inFlight;\n  }\n\n  function size() {\n    return queue.length;\n  }\n\n  function peek() {\n    return queue.map(item => ({ ...item }));\n  }\n\n  loadQueue();\n  return { enqueue, flush, size, peek };\n}\n```",
+  "usage": {
+    "prompt_tokens": 861,
+    "prompt_tokens_details": {
+      "cached_tokens": 49
+    },
+    "completion_tokens": 520,
+    "total_tokens": 1381
+  },
+  "latency_s": 336.0,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t04_offline_queue",
+  "run": 1
+}

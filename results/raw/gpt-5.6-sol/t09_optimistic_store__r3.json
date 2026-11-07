@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createOptimisticStore(initialState) {\n  let base = initialState;\n  let visibleState = initialState;\n  let pending = [];\n  const listeners = [];\n\n  function idsEqual(a, b) {\n    return a === b || (a !== a && b !== b);\n  }\n\n  function findPendingIndex(id) {\n    for (let index = 0; index < pending.length; index += 1) {\n      if (idsEqual(pending[index].id, id)) {\n        return index;\n      }\n    }\n    return -1;\n  }\n\n  function replay(startState, changes) {\n    let state = startState;\n\n    for (let index = 0; index < changes.length; index += 1) {\n      state = changes[index].update(state);\n    }\n\n    return state;\n  }\n\n  function notify() {\n    const snapshot = listeners.slice();\n\n    for (let index = 0; index < snapshot.length; index += 1) {\n      const listener = snapshot[index].listener;\n\n      try {\n        listener();\n      } catch {\n        // Listener errors must not interrupt notification.\n      }\n    }\n  }\n\n  function getState() {\n    return visibleState;\n  }\n\n  function apply(id, update) {\n    if (findPendingIndex(id) !== -1) {\n      throw new Error(\"A pending change with this id already exists\");\n    }\n\n    const nextVisibleState = update(visibleState);\n\n    pending = pending.concat({ id, update });\n    visibleState = nextVisibleState;\n    notify();\n  }\n\n  function confirm(id) {\n    const index = findPendingIndex(id);\n\n    if (index === -1) {\n      return false;\n    }\n\n    const change = pending[index];\n    const remaining = pending\n      .slice(0, index)\n      .concat(pending.slice(index + 1));\n\n    const nextBase = change.update(base);\n    const nextVisibleState = replay(nextBase, remaining);\n\n    base = nextBase;\n    pending = remaining;\n    visibleState = nextVisibleState;\n    notify();\n\n    return true;\n  }\n\n  function rollback(id) {\n    const index = findPendingIndex(id);\n\n    if (index === -1) {\n      return false;\n    }\n\n    const remaining = pending\n      .slice(0, index)\n      .concat(pending.slice(index + 1));\n\n    const nextVisibleState = replay(base, remaining);\n\n    pending = remaining;\n    visibleState = nextVisibleState;\n    notify();\n\n    return true;\n  }\n\n  function subscribe(listener) {\n    const subscription = { listener };\n    let subscribed = true;\n\n    listeners.push(subscription);\n\n    return function unsubscribe() {\n      if (!subscribed) {\n        return;\n      }\n\n      subscribed = false;\n      const index = listeners.indexOf(subscription);\n\n      if (index !== -1) {\n        listeners.splice(index, 1);\n      }\n    };\n  }\n\n  return {\n    getState,\n    apply,\n    confirm,\n    rollback,\n    subscribe,\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 710,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 5809,
+    "output_tokens_details": {
+      "reasoning_tokens": 5178
+    },
+    "total_tokens": 6519,
+    "prompt_tokens": 710,
+    "completion_tokens": 5809
+  },
+  "latency_s": 77.8,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t09_optimistic_store",
+  "run": 3
+}

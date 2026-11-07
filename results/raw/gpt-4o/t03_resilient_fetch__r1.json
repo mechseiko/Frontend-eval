@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function createResilientFetch({ fetch, sleep, random = Math.random, maxAttempts = 4, baseDelayMs = 200, maxDelayMs = 5000 }) {\n  return async function rfetch(url, options = {}) {\n    const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);\n    const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);\n    const idempotentMethods = new Set(['POST', 'PATCH']);\n    \n    let attempt = 0;\n    let lastError = null;\n    let lastResponse = null;\n\n    const method = (options.method || 'GET').toUpperCase();\n    const headers = options.headers instanceof Headers ? options.headers : new Headers(options.headers);\n\n    const canRetryMethod = safeMethods.has(method) || (idempotentMethods.has(method) && headers.has('Idempotency-Key'));\n\n    while (attempt < maxAttempts) {\n      attempt++;\n\n      if (options.signal && options.signal.aborted) {\n        const abortError = new Error('Aborted');\n        abortError.name = 'AbortError';\n        throw abortError;\n      }\n\n      try {\n        const response = await fetch(url, options);\n        if (response.ok) {\n          return response;\n        }\n\n        const status = response.status;\n        if (!retryableStatuses.has(status)) {\n          return response;\n        }\n\n        const retryAfter = response.headers.get('Retry-After');\n        if (retryAfter && /^\\d+$/.test(retryAfter)) {\n          const retryAfterMs = parseInt(retryAfter, 10) * 1000;\n          if (retryAfterMs > maxDelayMs) {\n            return response;\n          }\n          await sleep(retryAfterMs, options.signal);\n        } else {\n          const delay = Math.floor(random() * Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)));\n          await sleep(delay, options.signal);\n        }\n\n        lastResponse = response;\n      } catch (error) {\n        if (error.name === 'AbortError') {\n          throw error;\n        }\n        if (!canRetryMethod) {\n          throw error;\n        }\n        lastError = error;\n        const delay = Math.floor(random() * Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)));\n        await sleep(delay, options.signal);\n      }\n    }\n\n    if (lastResponse) {\n      return lastResponse;\n    }\n    throw lastError;\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 847,
+    "completion_tokens": 533,
+    "total_tokens": 1380,
+    "cost": 0.0074475,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0074475,
+      "upstream_inference_prompt_cost": 0.0021175,
+      "upstream_inference_completions_cost": 0.00533
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 4.2,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t03_resilient_fetch",
+  "run": 1
+}

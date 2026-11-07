@@ -81,7 +81,7 @@ describe("SearchBox", () => {
     expect(s.input).toHaveValue("  hello  ");
   });
 
-  test("[min-chars] short or blank queries make no request", () => {
+  test("[min-chars] {L2} short or blank queries make no request", () => {
     const s = setup();
     s.type("a");
     s.wait(1000);
@@ -95,7 +95,7 @@ describe("SearchBox", () => {
     expect(s.search).toHaveBeenCalledTimes(1);
   });
 
-  test("[min-chars] custom minChars", () => {
+  test("[min-chars] {L2} custom minChars", () => {
     const s = setup({ minChars: 4 });
     s.type("abc");
     s.wait(300);
@@ -105,7 +105,7 @@ describe("SearchBox", () => {
     expect(s.search).toHaveBeenCalledTimes(1);
   });
 
-  test("[min-chars] dropping below minChars cancels the timer, aborts, and clears results", async () => {
+  test("[min-chars] {L2} dropping below minChars cancels the timer, aborts, and clears results", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -122,7 +122,7 @@ describe("SearchBox", () => {
     expect(s.requests).toHaveLength(2);
   });
 
-  test("[min-chars] a pending debounce timer is cancelled when the query gets too short", () => {
+  test("[min-chars] {L2} a pending debounce timer is cancelled when the query gets too short", () => {
     const s = setup();
     s.type("abc");
     s.wait(200);
@@ -149,7 +149,7 @@ describe("SearchBox", () => {
     expect(s.status()).toBe("No results");
   });
 
-  test("[keep-results] previous results stay visible while the next request loads", async () => {
+  test("[keep-results] {L2} previous results stay visible while the next request loads", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -160,7 +160,7 @@ describe("SearchBox", () => {
     expect(s.items()).toEqual(["old"]);
   });
 
-  test("[abort] starting a new request aborts the previous one", () => {
+  test("[abort] {L2} starting a new request aborts the previous one", () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -171,7 +171,7 @@ describe("SearchBox", () => {
     expect(s.requests[1].signal.aborted).toBe(false);
   });
 
-  test("[stale-response] an old response arriving after a newer one is ignored", async () => {
+  test("[stale-response] {L3} an old response arriving after a newer one is ignored", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -183,7 +183,7 @@ describe("SearchBox", () => {
     expect(s.status()).toBe("");
   });
 
-  test("[stale-response] an old response arriving while the newer one is pending is ignored", async () => {
+  test("[stale-response] {L3} an old response arriving while the newer one is pending is ignored", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -194,7 +194,7 @@ describe("SearchBox", () => {
     expect(s.status()).toBe("Searching...");
   });
 
-  test("[stale-response] an old failure does not show an error", async () => {
+  test("[stale-response] {L3} an old failure does not show an error", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -206,7 +206,7 @@ describe("SearchBox", () => {
     expect(s.items()).toEqual(["ok"]);
   });
 
-  test("[abort] an AbortError from the latest request shows no error UI", async () => {
+  test("[abort] {L2} an AbortError from the latest request shows no error UI", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -228,7 +228,7 @@ describe("SearchBox", () => {
     expect(s.status()).toBe("");
   });
 
-  test("[retry] Retry re-runs the trimmed query immediately and clears the error", async () => {
+  test("[retry] {L2} Retry re-runs the trimmed query immediately and clears the error", async () => {
     const s = setup();
     s.type(" ab ");
     s.wait(300);
@@ -242,7 +242,7 @@ describe("SearchBox", () => {
     expect(s.items()).toEqual(["fine"]);
   });
 
-  test("[dedupe-query] a trailing space does not trigger a new request", async () => {
+  test("[dedupe-query] {L3} a trailing space does not trigger a new request", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -256,7 +256,7 @@ describe("SearchBox", () => {
     expect(s.requests[0].signal.aborted).toBe(false);
   });
 
-  test("[dedupe-query] typing away and back to the in-flight query does not re-request", () => {
+  test("[dedupe-query] {L3} typing away and back to the in-flight query does not re-request", () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -266,7 +266,7 @@ describe("SearchBox", () => {
     expect(s.requests).toHaveLength(1);
   });
 
-  test("[dedupe-query] after a failure the same query is requested again", async () => {
+  test("[dedupe-query] {L3} after a failure the same query is requested again", async () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -276,7 +276,7 @@ describe("SearchBox", () => {
     expect(s.requests).toHaveLength(2);
   });
 
-  test("[unmount] pending timer is cleared and in-flight request is aborted", () => {
+  test("[unmount] {L3} pending timer is cleared and in-flight request is aborted", () => {
     const s = setup();
     s.type("ab");
     s.wait(300);
@@ -287,7 +287,7 @@ describe("SearchBox", () => {
     expect(s.requests).toHaveLength(1);
   });
 
-  test("[unmount] a late resolution after unmount causes no error", async () => {
+  test("[unmount] {L3} a late resolution after unmount causes no error", async () => {
     const s = setup();
     const spy = jest.spyOn(console, "error").mockImplementation(() => {});
     s.type("ab");

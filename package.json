@@ -1,10 +1,11 @@
 {
-  "name": "fieldready-fe-eval",
+  "name": "frontend-eval",
   "version": "1.0.0",
   "private": true,
-  "description": "FieldReady-FE: an eval of AI coding models on production-grade frontend logic for emerging-market conditions",
+  "description": "Frontend-eval: an eval of AI coding models on production-grade frontend logic for emerging-market conditions",
   "scripts": {
-    "selftest": "python3 run_eval.py selftest"
+    "selftest": "python run_eval.py selftest",
+    "offline": "python run_eval.py run --offline && python run_eval.py report"
   },
   "devDependencies": {
     "@babel/core": "7.24.7",

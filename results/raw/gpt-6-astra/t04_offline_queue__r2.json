@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createOfflineQueue({\n  storage,\n  send,\n  key = \"queue:v1\",\n  maxAttempts = 5,\n}) {\n  let items = [];\n\n  try {\n    const raw = storage.getItem(key);\n    const saved = raw === null ? [] : JSON.parse(raw);\n    if (Array.isArray(saved)) {\n      items = saved;\n    }\n  } catch {\n    // Unreadable or malformed stored data starts an empty queue.\n  }\n\n  let inFlight = null;\n  let runningFlush = null;\n\n  function persist() {\n    storage.setItem(key, JSON.stringify(items));\n  }\n\n  function enqueue(action) {\n    if (items.some((item) => item.id === action.id)) {\n      return;\n    }\n\n    if (action.dedupeKey !== undefined) {\n      const match = items.find(\n        (item) =>\n          item !== inFlight && item.dedupeKey === action.dedupeKey,\n      );\n\n      if (match) {\n        match.type = action.type;\n        match.payload = action.payload;\n        match.attempts = 0;\n        persist();\n        return;\n      }\n    }\n\n    items.push({\n      id: action.id,\n      type: action.type,\n      payload: action.payload,\n      dedupeKey: action.dedupeKey,\n      attempts: 0,\n    });\n    persist();\n  }\n\n  function flush() {\n    if (runningFlush !== null) {\n      return runningFlush;\n    }\n\n    let resolveFlush;\n    let rejectFlush;\n\n    const promise = new Promise((resolve, reject) => {\n      resolveFlush = resolve;\n      rejectFlush = reject;\n    });\n\n    // Install the shared promise before send can synchronously reenter flush.\n    runningFlush = promise;\n\n    void (async () => {\n      const sent = [];\n      const failed = [];\n\n      try {\n        while (items.length > 0) {\n          const item = items[0];\n          inFlight = item;\n\n          let outcome = \"retryable\";\n\n          try {\n            const result = await send({\n              id: item.id,\n              type: item.type,\n              payload: item.payload,\n            });\n\n            if (result && result.ok === true) {\n              outcome = \"sent\";\n            } else if (\n              result &&\n              result.ok === false &&\n              result.retryable === false\n            ) {\n              outcome = \"rejected\";\n            }\n          } catch {\n            // Rejections and synchronous send errors are retryable.\n          }\n\n          inFlight = null;\n\n          if (outcome === \"sent\") {\n            items.shift();\n            sent.push(item.id);\n            persist();\n          } else if (outcome === \"rejected\") {\n            items.shift();\n            failed.push({ id: item.id, reason: \"rejected\" });\n            persist();\n          } else {\n            item.attempts += 1;\n            persist();\n\n            if (item.attempts >= maxAttempts) {\n              items.shift();\n              failed.push({ id: item.id, reason: \"max-attempts\" });\n              persist();\n            }\n\n            // Even an exhausted item stops this run.\n            break;\n          }\n        }\n\n        resolveFlush({ sent, failed, remaining: items.length });\n      } catch (error) {\n        rejectFlush(error);\n      } finally {\n        inFlight = null;\n        runningFlush = null;\n      }\n    })();\n\n    return promise;\n  }\n\n  return {\n    enqueue,\n    flush,\n\n    size() {\n      return items.length;\n    },\n\n    peek() {\n      return items.map((item) => ({\n        id: item.id,\n        type: item.type,\n        payload: item.payload,\n        dedupeKey: item.dedupeKey,\n        attempts: item.attempts,\n      }));\n    },\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 867,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 15429,
+    "output_tokens_details": {
+      "reasoning_tokens": 14641
+    },
+    "total_tokens": 16296,
+    "prompt_tokens": 867,
+    "completion_tokens": 15429
+  },
+  "latency_s": 422.3,
+  "model": "gpt-6-astra",
+  "model_id": "gpt-6-astra",
+  "task": "t04_offline_queue",
+  "run": 2
+}

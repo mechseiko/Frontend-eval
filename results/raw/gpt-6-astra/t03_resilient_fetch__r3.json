@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createResilientFetch({\n  fetch,\n  sleep,\n  random = Math.random,\n  maxAttempts = 4,\n  baseDelayMs = 200,\n  maxDelayMs = 5000,\n}) {\n  const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);\n  const retryableMethods = new Set([\"GET\", \"HEAD\", \"OPTIONS\", \"PUT\", \"DELETE\"]);\n\n  return async function rfetch(url, options = {}) {\n    const { method = \"GET\" } = options;\n    const normalizedMethod = String(method).toUpperCase();\n    let canRetry = retryableMethods.has(normalizedMethod);\n\n    if (normalizedMethod === \"POST\" || normalizedMethod === \"PATCH\") {\n      const headers = options.headers;\n      canRetry =\n        headers != null &&\n        (typeof headers.get === \"function\"\n          ? headers.get(\"Idempotency-Key\") != null\n          : Object.keys(headers).some(\n              (name) => name.toLowerCase() === \"idempotency-key\"\n            ));\n    }\n\n    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {\n      if (options.signal?.aborted) {\n        const error = new Error(\"The operation was aborted.\");\n        error.name = \"AbortError\";\n        throw error;\n      }\n\n      let response;\n      try {\n        response = await fetch(url, options);\n      } catch (error) {\n        if (\n          error?.name === \"AbortError\" ||\n          !canRetry ||\n          attempt >= maxAttempts\n        ) {\n          throw error;\n        }\n      }\n\n      let delayMs;\n\n      if (response !== undefined) {\n        if (\n          response.ok === true ||\n          !canRetry ||\n          attempt >= maxAttempts ||\n          !retryableStatuses.has(response.status)\n        ) {\n          return response;\n        }\n\n        const retryAfter = response.headers.get(\"Retry-After\");\n        if (\n          typeof retryAfter === \"string\" &&\n          retryAfter.length > 0 &&\n          !/\\D/.test(retryAfter)\n        ) {\n          delayMs = Number(retryAfter) * 1000;\n          if (delayMs > maxDelayMs) {\n            return response;\n          }\n        }\n      }\n\n      if (delayMs === undefined) {\n        delayMs = Math.floor(\n          random() *\n            Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1))\n        );\n      }\n\n      await sleep(delayMs, options.signal);\n    }\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 846,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 13345,
+    "output_tokens_details": {
+      "reasoning_tokens": 12803
+    },
+    "total_tokens": 14191,
+    "prompt_tokens": 846,
+    "completion_tokens": 13345
+  },
+  "latency_s": 291.1,
+  "model": "gpt-6-astra",
+  "model_id": "gpt-6-astra",
+  "task": "t03_resilient_fetch",
+  "run": 3
+}

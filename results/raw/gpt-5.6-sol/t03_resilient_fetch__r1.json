@@ -1,0 +1,22 @@
+{
+  "text": "```js\nconst RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);\nconst RETRYABLE_METHODS = new Set([\"GET\", \"HEAD\", \"OPTIONS\", \"PUT\", \"DELETE\"]);\n\nfunction hasIdempotencyKey(headers) {\n  if (headers == null) {\n    return false;\n  }\n\n  if (typeof headers.has === \"function\") {\n    return headers.has(\"Idempotency-Key\");\n  }\n\n  return Object.keys(headers).some(\n    (name) => name.toLowerCase() === \"idempotency-key\"\n  );\n}\n\nfunction isRetryableRequest(options) {\n  const methodValue = options.method === undefined ? \"GET\" : options.method;\n  const method = String(methodValue).toUpperCase();\n\n  if (RETRYABLE_METHODS.has(method)) {\n    return true;\n  }\n\n  return (\n    (method === \"POST\" || method === \"PATCH\") &&\n    hasIdempotencyKey(options.headers)\n  );\n}\n\nfunction containsOnlyDigits(value) {\n  if (typeof value !== \"string\" || value.length === 0) {\n    return false;\n  }\n\n  for (let index = 0; index < value.length; index += 1) {\n    const code = value.charCodeAt(index);\n    if (code < 48 || code > 57) {\n      return false;\n    }\n  }\n\n  return true;\n}\n\nfunction createAbortError() {\n  const error = new Error(\"The operation was aborted\");\n  error.name = \"AbortError\";\n  return error;\n}\n\nexport function createResilientFetch({\n  fetch,\n  sleep,\n  random = Math.random,\n  maxAttempts = 4,\n  baseDelayMs = 200,\n  maxDelayMs = 5000,\n}) {\n  function getBackoffDelay(retryNumber) {\n    const limit = Math.min(\n      maxDelayMs,\n      baseDelayMs * 2 ** (retryNumber - 1)\n    );\n    return Math.floor(random() * limit);\n  }\n\n  return async function rfetch(url, options = {}) {\n    const requestIsRetryable = isRetryableRequest(options);\n    let attempt = 1;\n\n    while (true) {\n      const signal = options.signal;\n      if (signal && signal.aborted) {\n        throw createAbortError();\n      }\n\n      let response;\n\n      try {\n        response = await fetch(url, options);\n      } catch (error) {\n        if (error && error.name === \"AbortError\") {\n          throw error;\n        }\n\n        if (!requestIsRetryable || attempt >= maxAttempts) {\n          throw error;\n        }\n\n        await sleep(getBackoffDelay(attempt), options.signal);\n        attempt += 1;\n        continue;\n      }\n\n      if (response.ok === true) {\n        return response;\n      }\n\n      if (!RETRYABLE_STATUSES.has(response.status)) {\n        return response;\n      }\n\n      if (!requestIsRetryable || attempt >= maxAttempts) {\n        return response;\n      }\n\n      const retryAfter = response.headers.get(\"Retry-After\");\n      let delayMs;\n\n      if (containsOnlyDigits(retryAfter)) {\n        delayMs = Number(retryAfter) * 1000;\n\n        if (delayMs > maxDelayMs) {\n          return response;\n        }\n      } else {\n        delayMs = getBackoffDelay(attempt);\n      }\n\n      await sleep(delayMs, options.signal);\n      attempt += 1;\n    }\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 846,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 16201,
+    "output_tokens_details": {
+      "reasoning_tokens": 15467
+    },
+    "total_tokens": 17047,
+    "prompt_tokens": 846,
+    "completion_tokens": 16201
+  },
+  "latency_s": 186.5,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t03_resilient_fetch",
+  "run": 1
+}

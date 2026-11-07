@@ -1,0 +1,16 @@
+{
+  "text": "```js\nexport function normalizeNigerianPhone(input) {\n  if (typeof input !== 'string') return null;\n\n  // Remove all non-digit characters except for the leading '+'\n  input = input.replace(/[^+\\d]/g, '');\n\n  // Check for valid country code and format\n  if (!input.startsWith('+234') && !input.startsWith('00234') && !input.startsWith('234')) return null;\n\n  // Remove country code and trunk digit if present\n  if (input.startsWith('+234')) input = input.slice(4);\n  else if (input.startsWith('00234')) input = input.slice(5);\n  else if (input.startsWith('234')) input = input.slice(3);\n\n  // Remove leading '0' if present\n  if (input.startsWith('0')) input = input.slice(1);\n\n  // Validate national number format\n  if (!/^[789][01]\\d{8}$/.test(input)) return null;\n\n  // Return E.164 format\n  return `+234${input}`;\n}\n\nexport function formatNigerianPhone(input) {\n  if (typeof input !== 'string') return null;\n\n  // Normalize the input first\n  const normalized = normalizeNigerianPhone(input);\n  if (!normalized) return null;\n\n  // Extract national number\n  const nationalNumber = normalized.slice(4);\n\n  // Format the national number\n  return `0${nationalNumber.slice(0, 4)} ${nationalNumber.slice(4, 7)} ${nationalNumber.slice(7)}`;\n}\n```",
+  "usage": {
+    "prompt_tokens": 782,
+    "prompt_tokens_details": {
+      "cached_tokens": 49
+    },
+    "completion_tokens": 342,
+    "total_tokens": 1124
+  },
+  "latency_s": 210.6,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t02_ng_phone",
+  "run": 1
+}

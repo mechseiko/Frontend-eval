@@ -1,0 +1,22 @@
+{
+  "text": "```js\nfunction getNationalNumber(input) {\n  if (typeof input !== \"string\") {\n    return null;\n  }\n\n  const value = input.replace(/[\\s().-]/g, \"\");\n\n  if (!/^\\+?\\d+$/.test(value)) {\n    return null;\n  }\n\n  let nationalNumber;\n  let hasCountryCode = false;\n\n  if (value.startsWith(\"+\")) {\n    if (!value.startsWith(\"+234\")) {\n      return null;\n    }\n\n    nationalNumber = value.slice(4);\n    hasCountryCode = true;\n  } else if (value.startsWith(\"00234\")) {\n    nationalNumber = value.slice(5);\n    hasCountryCode = true;\n  } else if (value.startsWith(\"234\")) {\n    nationalNumber = value.slice(3);\n    hasCountryCode = true;\n  } else if (value.startsWith(\"0\") && !value.startsWith(\"00\")) {\n    nationalNumber = value.slice(1);\n  } else {\n    nationalNumber = value;\n  }\n\n  if (hasCountryCode) {\n    if (nationalNumber.startsWith(\"00\")) {\n      return null;\n    }\n\n    if (nationalNumber.startsWith(\"0\")) {\n      nationalNumber = nationalNumber.slice(1);\n    }\n  }\n\n  return /^[789][01]\\d{8}$/.test(nationalNumber)\n    ? nationalNumber\n    : null;\n}\n\nexport function normalizeNigerianPhone(input) {\n  const nationalNumber = getNationalNumber(input);\n\n  return nationalNumber === null ? null : `+234${nationalNumber}`;\n}\n\nexport function formatNigerianPhone(input) {\n  const nationalNumber = getNationalNumber(input);\n\n  if (nationalNumber === null) {\n    return null;\n  }\n\n  return `0${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3, 6)} ${nationalNumber.slice(6)}`;\n}\n```",
+  "usage": {
+    "input_tokens": 648,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 1436,
+    "output_tokens_details": {
+      "reasoning_tokens": 1034
+    },
+    "total_tokens": 2084,
+    "prompt_tokens": 648,
+    "completion_tokens": 1436
+  },
+  "latency_s": 34.1,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t02_ng_phone",
+  "run": 1
+}

@@ -166,3 +166,30 @@ describe("computeInvoice hardening", () => {
     for (let i = 0; i < 150; i++) expectSame(fuzzInvoice(r, 40000000000, 50), i);
   });
 });
+
+describe("computeInvoice: leftover kobo goes to the largest remainder", () => {
+  test("[allocation] {L2} the line with the largest remainder, not the first line, gets the extra kobo", () => {
+    // shares of 100 over 200/100/300 are 33.33, 16.67, 50.00: the leftover kobo belongs to line 2
+    const r = computeInvoice({
+      lines: [
+        { sku: "a", unitPriceKobo: 200, qty: 1, vatExempt: true },
+        { sku: "b", unitPriceKobo: 100, qty: 1, vatExempt: true },
+        { sku: "c", unitPriceKobo: 300, qty: 1, vatExempt: true },
+      ],
+      discountKobo: 100,
+    });
+    expect(r.lines.map((l) => l.discountKobo)).toEqual([33, 17, 50]);
+  });
+
+  const mk = (prices, discountKobo) => ({ lines: prices.map((p, i) => ({ sku: "s" + i, unitPriceKobo: p, qty: 1, vatExempt: true })), discountKobo });
+
+  test("[allocation] {L2} two leftover kobo go to the two largest remainders, whichever lines they are on", () => {
+    // exact shares 207.93, 472.51, 710.56: floors sum to 1389, so lines 1 and 3 (.93 and .56) get the 2 extra kobo
+    expect(computeInvoice(mk([290, 659, 991], 1391)).lines.map((l) => l.discountKobo)).toEqual([208, 472, 711]);
+  });
+
+  test("[allocation] {L2} equal remainders: the earlier line gets the leftover kobo", () => {
+    expect(computeInvoice(mk([100, 100, 100], 100)).lines.map((l) => l.discountKobo)).toEqual([34, 33, 33]);
+    expect(computeInvoice(mk([100, 100, 101], 100)).lines.map((l) => l.discountKobo)).toEqual([33, 33, 34]);
+  });
+});

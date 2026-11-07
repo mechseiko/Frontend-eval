@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createResilientFetch({\n  fetch,\n  sleep,\n  random = Math.random,\n  maxAttempts = 4,\n  baseDelayMs = 200,\n  maxDelayMs = 5000,\n}) {\n  const retryableStatuses = new Set([408, 429, 500, 502, 503, 504]);\n  const retryableMethods = new Set([\"GET\", \"HEAD\", \"OPTIONS\", \"PUT\", \"DELETE\"]);\n\n  const backoffDelay = (retryNumber) =>\n    Math.floor(\n      random() *\n        Math.min(maxDelayMs, baseDelayMs * 2 ** (retryNumber - 1))\n    );\n\n  return async function rfetch(url, options = {}) {\n    const method = String(options.method ?? \"GET\").toUpperCase();\n    let canRetry = retryableMethods.has(method);\n\n    if (method === \"POST\" || method === \"PATCH\") {\n      const headers = options.headers;\n\n      if (headers && typeof headers.get === \"function\") {\n        // Presence is sufficient, even when the header value is empty.\n        canRetry = headers.get(\"Idempotency-Key\") != null;\n      } else if (headers) {\n        canRetry = Object.keys(headers).some(\n          (name) => name.toLowerCase() === \"idempotency-key\"\n        );\n      }\n    }\n\n    for (let attempt = 1; ; attempt += 1) {\n      if (options.signal?.aborted) {\n        const error = new Error(\"The operation was aborted.\");\n        error.name = \"AbortError\";\n        throw error;\n      }\n\n      let response;\n\n      try {\n        response = await fetch(url, options);\n      } catch (error) {\n        if (\n          error?.name === \"AbortError\" ||\n          !canRetry ||\n          attempt >= maxAttempts\n        ) {\n          throw error;\n        }\n\n        const delayMs = backoffDelay(attempt);\n        await sleep(delayMs, options.signal);\n        continue;\n      }\n\n      if (response.ok === true) {\n        return response;\n      }\n\n      if (\n        !canRetry ||\n        !retryableStatuses.has(response.status) ||\n        attempt >= maxAttempts\n      ) {\n        return response;\n      }\n\n      const retryAfter = response.headers.get(\"Retry-After\");\n      let delayMs;\n\n      if (\n        typeof retryAfter === \"string\" &&\n        retryAfter.length > 0 &&\n        !/[^0-9]/.test(retryAfter)\n      ) {\n        delayMs = Number(retryAfter) * 1000;\n\n        if (delayMs > maxDelayMs) {\n          return response;\n        }\n      } else {\n        delayMs = backoffDelay(attempt);\n      }\n\n      await sleep(delayMs, options.signal);\n    }\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 846,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 11208,
+    "output_tokens_details": {
+      "reasoning_tokens": 10621
+    },
+    "total_tokens": 12054,
+    "prompt_tokens": 846,
+    "completion_tokens": 11208
+  },
+  "latency_s": 319.5,
+  "model": "gpt-6.1-sol",
+  "model_id": "gpt-6.1-sol",
+  "task": "t03_resilient_fetch",
+  "run": 2
+}

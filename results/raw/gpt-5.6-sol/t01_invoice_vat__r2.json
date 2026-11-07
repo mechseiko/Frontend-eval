@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function computeInvoice(input) {\n  const lines = input == null ? undefined : input.lines;\n\n  if (!Array.isArray(lines)) {\n    throw new RangeError(\"lines must be an array\");\n  }\n\n  const requestedDiscountKobo =\n    input.discountKobo === undefined ? 0 : input.discountKobo;\n\n  if (\n    !Number.isInteger(requestedDiscountKobo) ||\n    requestedDiscountKobo < 0\n  ) {\n    throw new RangeError(\"discountKobo must be a non-negative integer\");\n  }\n\n  const preparedLines = new Array(lines.length);\n  let subtotal = 0n;\n\n  for (let index = 0; index < lines.length; index += 1) {\n    const line = lines[index];\n    const unitPriceKobo =\n      line == null ? undefined : line.unitPriceKobo;\n    const qty = line == null ? undefined : line.qty;\n\n    if (!Number.isInteger(unitPriceKobo) || unitPriceKobo < 0) {\n      throw new RangeError(\n        `unitPriceKobo at line ${index} must be a non-negative integer`\n      );\n    }\n\n    if (!Number.isInteger(qty) || qty < 1) {\n      throw new RangeError(\n        `qty at line ${index} must be a positive integer`\n      );\n    }\n\n    const lineSubtotal = BigInt(unitPriceKobo) * BigInt(qty);\n    subtotal += lineSubtotal;\n\n    preparedLines[index] = {\n      sku: line.sku,\n      vatExempt: line.vatExempt,\n      subtotalKobo: lineSubtotal,\n    };\n  }\n\n  const requestedDiscount = BigInt(requestedDiscountKobo);\n  const appliedDiscount =\n    requestedDiscount < subtotal ? requestedDiscount : subtotal;\n\n  const allocations = new Array(lines.length).fill(0n);\n\n  if (subtotal > 0n && appliedDiscount > 0n) {\n    const remainders = new Array(lines.length);\n    let allocated = 0n;\n\n    for (let index = 0; index < preparedLines.length; index += 1) {\n      const product =\n        appliedDiscount * preparedLines[index].subtotalKobo;\n      const allocation = product / subtotal;\n\n      allocations[index] = allocation;\n      allocated += allocation;\n      remainders[index] = {\n        index,\n        remainder: product % subtotal,\n      };\n    }\n\n    let leftover = appliedDiscount - allocated;\n\n    if (leftover > 0n) {\n      remainders.sort((a, b) => {\n        if (a.remainder === b.remainder) {\n          return a.index - b.index;\n        }\n        return a.remainder > b.remainder ? -1 : 1;\n      });\n\n      for (let rank = 0; leftover > 0n; rank += 1) {\n        allocations[remainders[rank].index] += 1n;\n        leftover -= 1n;\n      }\n    }\n  }\n\n  let vat = 0n;\n\n  const resultLines = preparedLines.map((line, index) => {\n    const lineDiscount = allocations[index];\n    const net = line.subtotalKobo - lineDiscount;\n    const lineVat = line.vatExempt\n      ? 0n\n      : (net * 3n + 20n) / 40n;\n\n    vat += lineVat;\n\n    return {\n      sku: line.sku,\n      subtotalKobo: Number(line.subtotalKobo),\n      discountKobo: Number(lineDiscount),\n      netKobo: Number(net),\n      vatKobo: Number(lineVat),\n    };\n  });\n\n  const total = subtotal - appliedDiscount + vat;\n\n  return {\n    subtotalKobo: Number(subtotal),\n    discountKobo: Number(appliedDiscount),\n    vatKobo: Number(vat),\n    totalKobo: Number(total),\n    lines: resultLines,\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 636,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 8052,
+    "output_tokens_details": {
+      "reasoning_tokens": 7228
+    },
+    "total_tokens": 8688,
+    "prompt_tokens": 636,
+    "completion_tokens": 8052
+  },
+  "latency_s": 110.4,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t01_invoice_vat",
+  "run": 2
+}

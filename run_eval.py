@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FieldReady-FE runner. Python standard library only.
+"""Frontend-eval. Python standard library.
 
 Commands
   list                         show tasks
@@ -28,6 +28,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -38,6 +39,9 @@ RAW = RESULTS / "raw"
 TAG_RE = re.compile(r"\[([a-z0-9-]+)\]")
 LEVEL_RE = re.compile(r"\{L([123])\}")  # difficulty tier marker in a test title; unmarked = L1
 LOC_RE = re.compile(r"solution\.jsx?:(\d+):(\d+)")
+# Every graded run of the suite uses a DST timezone so local-time bugs cannot hide on a
+# machine whose own zone has no DST (West Africa Time, for example). See jest.global-setup.js.
+EVAL_TZ = "America/Los_Angeles"
 
 SYSTEM_PROMPT = (
     "You are an expert JavaScript and React engineer. Follow the specification exactly, including every edge case. "
@@ -74,7 +78,12 @@ def build_prompt(task):
     )
 
 
+THOUGHT_RE = re.compile(r"<thought>.*?</thought>| thinking.*? response", re.S | re.I)
+
+
 def extract_code(text):
+    # Some models wrap the answer in a visible reasoning trace; that trace is not the answer.
+    text = THOUGHT_RE.sub("", text or "")
     blocks = re.findall(r"```[a-zA-Z0-9_+-]*[ \t]*\r?\n(.*?)```", text, re.S)
     if not blocks:
         return text.strip() + "\n"
@@ -87,6 +96,17 @@ def node_bin():
     if not n:
         sys.exit("node was not found on PATH. Install Node 20+ and run `npm ci`.")
     return n
+
+
+def scrub_paths(text):
+    """Drop the absolute checkout path from stored output so reports carry no local paths."""
+    if not text:
+        return text
+    for prefix in (str(ROOT), str(ROOT).replace("\\", "/")):
+        text = text.replace(prefix, "")
+    text = re.sub(r"[A-Za-z]:[\\/][^\s\"']*?[\\/]sandbox[\\/]", "sandbox/", text)
+    text = text.replace("\\sandbox\\", "sandbox/").replace("\\sandbox/", "sandbox/")
+    return text
 
 
 def grade(task, code, tag, timeout=120):
@@ -115,6 +135,9 @@ def grade(task, code, tag, timeout=120):
     cmd = [node_bin(), str(ROOT / "node_modules" / "jest" / "bin" / "jest.js"), "--config", "jest.config.js",
            "--runTestsByPath", test_file.relative_to(ROOT).as_posix(), "--json", f"--outputFile={out}", "--silent", "--ci"]
     t0 = time.time()
+    # Pin the zone for the Jest process itself, not only inside jest.global-setup.js, so the
+    # DST-sensitive checks in t08 bite even when a worker starts before the setup module runs.
+    env = dict(os.environ, TZ=EVAL_TZ)
     try:
         proc = subprocess.run(
             cmd,
@@ -124,6 +147,7 @@ def grade(task, code, tag, timeout=120):
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            env=env,
         )
         stderr = (proc.stderr or "")[-800:]
     except subprocess.TimeoutExpired:
@@ -135,7 +159,7 @@ def grade(task, code, tag, timeout=120):
         for a in suite.get("assertionResults", []):
             m = TAG_RE.search(a["title"])
             lv = LEVEL_RE.search(a["title"])
-            full = (a.get("failureMessages") or [""])[0]
+            full = scrub_paths((a.get("failureMessages") or [""])[0])
             loc = LOC_RE.search(full)
             res["tests"].append({"title": a["title"], "status": a["status"], "tag": m.group(1) if m else "untagged",
                                  "level": int(lv.group(1)) if lv else 1,
@@ -143,10 +167,10 @@ def grade(task, code, tag, timeout=120):
         res["passed"] = sum(1 for t in res["tests"] if t["status"] == "passed")
         res["total"] = len(res["tests"])
         if not res["tests"]:
-            res["error"] = ((suite.get("message") or stderr) or "suite failed to run")[:400]
+            res["error"] = scrub_paths((suite.get("message") or stderr) or "suite failed to run")[:400]
             res["total"] = task.get("n_tests", 0)
     else:
-        res["error"] = stderr or "jest produced no output"
+        res["error"] = scrub_paths(stderr) or "jest produced no output"
         res["total"] = task.get("n_tests", 0)
     shutil.rmtree(box, ignore_errors=True)
     return res
@@ -201,14 +225,24 @@ def slug(s):
 
 
 def _extract_text(data):
-    """Assistant text from an OpenAI-style reply or from a simple {"text": ...} style reply."""
+    """Assistant text from an OpenAI chat reply, an OpenAI Responses reply, or a simple {"text": ...} reply."""
     if isinstance(data, str):
         return data
     if isinstance(data, dict):
         if data.get("choices"):
             ch = data["choices"][0]
             return (ch.get("message") or {}).get("content") or ch.get("text") or ""
-        for k in ("text", "response", "output", "content", "answer", "reply", "message"):
+        if isinstance(data.get("output"), list):
+            # OpenAI Responses API: output[] items of type "message" hold the answer text.
+            chunks = []
+            for item in data["output"]:
+                if isinstance(item, dict) and item.get("type") == "message":
+                    for c in item.get("content") or []:
+                        if isinstance(c, dict) and c.get("type") in ("output_text", "text"):
+                            chunks.append(c.get("text") or "")
+            if chunks:
+                return "".join(chunks)
+        for k in ("output_text", "text", "response", "content", "answer", "reply", "message"):
             v = data.get(k)
             if isinstance(v, str):
                 return v
@@ -217,13 +251,38 @@ def _extract_text(data):
     raise KeyError("no assistant text found in the reply")
 
 
+def _usage_of(data):
+    """Normalise usage from chat (prompt/completion) or Responses (input/output) shapes."""
+    u = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(u, dict):
+        return {}
+    out = dict(u)
+    out.setdefault("prompt_tokens", u.get("input_tokens", 0))
+    out.setdefault("completion_tokens", u.get("output_tokens", 0))
+    return out
+
+
 def call_model(m, prompt, system=None, min_tokens=0):
     """One model call. protocol 'openai' (default) speaks /chat/completions; 'simple' POSTs {prompt, system}
     and accepts JSON with text/response/output/content or a plain-text body."""
     system = system or SYSTEM_PROMPT
-    url = m.get("url") or (m["base_url"].rstrip("/") + "/chat/completions")
-    if m.get("protocol", "openai") == "simple":
+    proto = m.get("protocol", "openai")
+    if proto == "responses":
+        url = m.get("url") or (m["base_url"].rstrip("/") + "/responses")
+    else:
+        url = m.get("url") or (m["base_url"].rstrip("/") + "/chat/completions")
+    if proto == "simple":
         body = {"prompt": prompt, "system": system, "message": prompt}
+    elif proto == "responses":
+        body = {
+            "model": m.get("model") or "default",
+            "instructions": system,
+            "input": prompt,
+            "temperature": m.get("temperature", 0),
+            "max_output_tokens": max(m.get("max_tokens", 4096), min_tokens),
+        }
+        if m.get("reasoning_effort"):
+            body["reasoning"] = {"effort": m["reasoning_effort"]}
     else:
         body = {
             "model": m.get("model") or "default",
@@ -231,7 +290,14 @@ def call_model(m, prompt, system=None, min_tokens=0):
             "max_tokens": max(m.get("max_tokens", 4096), min_tokens),
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
         }
+        if m.get("reasoning_effort"):
+            # Thinking models otherwise spend the whole output budget before writing any code,
+            # which would be recorded as a model failure when it is really a harness setting.
+            body["reasoning_effort"] = m["reasoning_effort"]
     headers = {"Content-Type": "application/json"}
+    if m.get("user_agent"):
+        # Some gateways allowlist clients by User-Agent and reject everything else.
+        headers["User-Agent"] = m["user_agent"]
     env = m.get("api_key_env")
     if env:
         key = os.environ.get(env)
@@ -249,7 +315,7 @@ def call_model(m, prompt, system=None, min_tokens=0):
                 data = json.loads(payload)
             except json.JSONDecodeError:
                 data = payload  # plain-text agent
-            return {"text": _extract_text(data), "usage": data.get("usage", {}) if isinstance(data, dict) else {},
+            return {"text": _extract_text(data), "usage": _usage_of(data),
                     "latency_s": round(time.time() - t0, 1)}
         except urllib.error.HTTPError as e:
             last = f"HTTP {e.code}: {e.read().decode(errors='replace')[:200]}"
@@ -336,19 +402,38 @@ def run_models(models, by_name, tasks, nruns, args, runs_path):
     RESULTS.mkdir(exist_ok=True)
     runs = json.loads(runs_path.read_text(encoding="utf-8")) if runs_path.exists() else []
     index = {(r["model"], r["task"], r["run"]): i for i, r in enumerate(runs)}
-    work = []
-    for m in models:
-        for task in tasks:
-            for k in range(1, nruns + 1):
-                try:
-                    raw, src = get_answer(m, task, k, args, by_name)
-                except RuntimeError as e:
-                    print(f"[error] {m['name']} {task['id']}: {e}")
-                    continue
-                if raw is None:
-                    print(f"[skip] {m['name']} {task['id']} run {k}: no cached answer and --offline")
-                    continue
-                work.append((m, task, k, raw, src))
+    total = len(models) * len(tasks) * nruns
+    print(f"Phase 1 of 2: collecting answers. {len(models)} model(s) x {len(tasks)} task(s) x {nruns} run(s) = {total} calls.", flush=True)
+    print("  Models: " + ", ".join(m["name"] for m in models), flush=True)
+    print("  Cached answers are reused unless --refresh was given. Each finished call is printed below.", flush=True)
+    items = [(m, task, k) for m in models for task in tasks for k in range(1, nruns + 1)]
+
+    def fetch(item):
+        m, task, k = item
+        t0 = time.time()
+        try:
+            raw, src = get_answer(m, task, k, args, by_name)
+        except RuntimeError as e:
+            return item, None, "error", str(e), 0.0
+        if raw is None:
+            return item, None, "skip", "no cached answer and --offline", 0.0
+        return item, raw, src, "", time.time() - t0
+
+    work, done = [], 0
+    # Several calls in flight at once: these models take tens of seconds each and are independent.
+    call_workers = max(1, min(4, len(items)))
+    with cf.ThreadPoolExecutor(max_workers=call_workers) as pool:
+        for item, raw, src, note, secs in pool.map(fetch, items):
+            done += 1
+            m, task, k = item
+            if raw is None:
+                print(f"[{done}/{total}] [{src}] {m['name']} {task['id']} run {k}: {note}", flush=True)
+                continue
+            chars = len(raw.get("text") or "")
+            print(f"[{done}/{total}] [{src}] {m['name']} {task['id']} run {k}: {chars} chars in {round(secs, 1)}s", flush=True)
+            work.append((m, task, k, raw, src))
+
+    print(f"\nPhase 2 of 2: grading {len(work)} answer(s) with Jest.", flush=True)
 
     def do(item):
         m, task, k, raw, src = item
@@ -378,7 +463,26 @@ def run_models(models, by_name, tasks, nruns, args, runs_path):
 
 
 def cmd_run(args):
-    cfg = json.loads(Path(args.models).read_text(encoding="utf-8"))
+    cfg_path = Path(args.models)
+    if not cfg_path.exists():
+        # Offline re-grading only needs the model NAMES: results/raw/<name>/ is the cache key.
+        # Rebuilding the list from results/runs.json keeps the submission reproducible even if
+        # models.json is missing, and never falls back to the placeholder template.
+        names = []
+        runs_path = RESULTS / "runs.json"
+        if args.offline and runs_path.exists():
+            for r in json.loads(runs_path.read_text(encoding="utf-8")):
+                if r["model"] not in names:
+                    names.append(r["model"])
+        if names:
+            print(f"note: {cfg_path} not found; --offline rebuilds the model list from results/runs.json "
+                  f"({len(names)} model(s): {', '.join(names)}).")
+            cfg = {"models": [{"name": n} for n in names]}
+        else:
+            sys.exit(f"{cfg_path} not found. Copy models.example.json to models.json and edit it, "
+                     f"or run with --offline to re-grade the answers already in results/raw/.")
+    else:
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     by_name = {m["name"]: m for m in cfg["models"]}
     models = [m for m in cfg["models"] if not m.get("disabled") and (not args.only or m["name"] in args.only)]
     if args.consensus:
@@ -428,7 +532,7 @@ def cmd_battle(args):
         print(f"{r['task']:24} excluded: {r['invalid']}")
     print(f"\nfully passed {full}/{len(mine)} tasks; mean checks passed {pct(sum(r['passed'] / r['total'] for r in mine if r['total']) / len(mine))}")
     out = RESULTS / f"battle_{slug(name)}.html"
-    write_report_html(build_report_data(runs, load_tasks(), focus=name, title=f"{name} vs FieldReady-FE"), out)
+    write_report_html(build_report_data(runs, load_tasks(), focus=name, title=f"{name} vs Frontend-eval"), out)
     print(f"Shareable scorecard: {out.relative_to(ROOT).as_posix()}")
     return 0
 
@@ -520,7 +624,7 @@ def load_runs():
     return runs
 
 
-def build_report_data(runs, tasks, focus=None, title="FieldReady-FE results"):
+def build_report_data(runs, tasks, focus=None, title="Frontend-eval results"):
     """Everything the interactive HTML report needs, as plain JSON (code, diffs vs the reference, failing checks)."""
     refs = {}
     for t in tasks:
@@ -565,6 +669,80 @@ def pct(x):
     return f"{round(100 * x)}%"
 
 
+# ----------------------------------------------------------------------------- grader strength (mutation testing)
+MUTATORS = [
+    ("===", "!=="), ("!==", "==="), ("<=", "<"), (">=", ">"), ("&&", "||"), ("||", "&&"),
+    (r"(?<![<=!>])<(?![<=])", "<="), (r"(?<![=>\-])>(?![>=])", ">="),
+    (r"(?<![+\-])\+(?![+=])", "-"), (r"(?<![\-])-(?![\->=])", "+"),
+]
+
+
+def _in_string(line, pos):
+    q = None
+    for ch in line[:pos]:
+        if q is None and ch in "'\"`":
+            q = ch
+        elif q == ch:
+            q = None
+    return q is not None
+
+
+def mutants_of(source):
+    """Single-edit mutants of a JS source: flipped operators and off-by-one number literals."""
+    lines, out = source.split("\n"), []
+    for ln, line in enumerate(lines):
+        if line.lstrip().startswith(("//", "*", "/*", "import ", "export {")):
+            continue
+        cmt = line.find("//")
+        for pat, rep in MUTATORS:
+            for m in re.finditer(pat if pat.startswith("(?") else re.escape(pat), line):
+                if _in_string(line, m.start()) or (cmt != -1 and m.start() > cmt):
+                    continue
+                out.append((ln + 1, f"{m.group(0)} -> {rep}", "\n".join(lines[:ln] + [line[:m.start()] + rep + line[m.end():]] + lines[ln + 1:])))
+        for m in re.finditer(r"(?<![\w.])\d+(?![\w.])", line):
+            if _in_string(line, m.start()) or (cmt != -1 and m.start() > cmt):
+                continue
+            n = int(m.group(0))
+            for new in {n + 1, max(0, n - 1)} - {n}:
+                out.append((ln + 1, f"{n} -> {new}", "\n".join(lines[:ln] + [line[:m.start()] + str(new) + line[m.end():]] + lines[ln + 1:])))
+    return out
+
+
+def cmd_mutate(args):
+    """Grader strength: apply small bugs to each reference solution; a strong grader fails every one."""
+    import random
+    results, rng = [], random.Random(args.seed)
+    for task in load_tasks(args.tasks):
+        ref = next((task["dir"] / "reference").glob("solution.js"), None)
+        if ref is None:
+            continue
+        cand = mutants_of(ref.read_text(encoding="utf-8"))
+        rng.shuffle(cand)
+        cand = cand[: args.max]
+        with cf.ThreadPoolExecutor(max_workers=max(1, args.jobs or (os.cpu_count() or 1))) as pool:
+            graded = list(pool.map(lambda x: grade(task, x[1][2], f"mut_{x[0]}"), enumerate(cand)))
+        rows, killed, invalid = [], 0, 0
+        for (line, what, _), g in zip(cand, graded):
+            if g["total"] == 0:
+                invalid += 1
+                continue
+            dead = g["passed"] < g["total"]
+            killed += dead
+            tags = sorted({t["tag"] for t in g["tests"] if t["status"] != "passed"})[:4]
+            rows.append({"line": line, "mutation": what, "killed": dead, "by": tags})
+        valid = len(rows)
+        results.append({"task": task["id"], "mutants": valid, "killed": killed, "invalid": invalid,
+                        "rate": killed / valid if valid else None, "survivors": [r for r in rows if not r["killed"]]})
+        print(f"{task['id']:24} killed {killed}/{valid}  ({pct(killed / valid) if valid else '-'})" + (f"   {invalid} unparsable skipped" if invalid else ""))
+        for r in results[-1]["survivors"]:
+            print(f"    survived: line {r['line']}  {r['mutation']}")
+    RESULTS.mkdir(exist_ok=True)
+    (RESULTS / "mutation.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
+    tot, k = sum(r["mutants"] for r in results), sum(r["killed"] for r in results)
+    print(f"\nOverall: the hidden tests caught {k}/{tot} injected bugs ({pct(k / tot) if tot else '-'}). Survivors may be harmless equivalent mutants; review them.")
+    return 0
+
+
 def blind_spots(runs):
     """Checks that every non-consensus model that attempted the task failed (needs 2+ models)."""
     by = {}
@@ -580,12 +758,111 @@ def blind_spots(runs):
     return sorted(out)
 
 
+def readme_block(models, task_ids, grid, summary, trials, titles, short_cells=None):
+    """The Results tables that `report --sync-readme` writes into README.md."""
+    def lv(m, n):
+        p, t = summary[m].get("levels", {}).get(n, [0, 0])
+        return f"{pct(p / t)} ({p}/{t})" if t else "-"
+
+    lines = ["| Model | Trials/task | Tasks fully passed | Mean test score | L1 happy path | L2 edge cases | L3 adversarial |",
+             "|---|---|---|---|---|---|---|"]
+    for m in models:
+        s = summary[m]
+        lines.append(f"| {m} | {trials.get(m, 0)} | **{s['tasks_fully_passed']:.1f} / {s['tasks']}** | "
+                     f"{pct(s['mean_score'])} | {lv(m, 1)} | {lv(m, 2)} | {lv(m, 3)} |")
+    lines += ["", "| Task | Category | " + " | ".join(models) + " |", "|---|---|" + "---|" * len(models)]
+    for t in task_ids:
+        row = [f"`{t}`", titles[t]["category"]]
+        for m in models:
+            c = grid.get((m, t))
+            row.append(f"{pct(c['pass_rate'])} ({pct(c['score'])})" if c else "-")
+        lines.append("| " + " | ".join(row) + " |")
+    if short_cells:
+        lines += ["", "*Where a model returned no usable answer, the cell counts what it did return: "
+                      + "; ".join(short_cells) + ". Those answers are excluded, never scored as failures.*"]
+    ranked = sorted(models, key=lambda m: (summary[m]["tasks_fully_passed"], summary[m]["mean_score"]), reverse=True)
+    best, worst = ranked[0], ranked[-1]
+    if best != worst:
+        lines += ["", f"Best: **{best}**, {summary[best]['tasks_fully_passed']:.1f}/{summary[best]['tasks']} tasks fully "
+                      f"passed at {pct(summary[best]['mean_score'])} of checks. Lowest: **{worst}**, "
+                      f"{summary[worst]['tasks_fully_passed']:.1f}/{summary[worst]['tasks']} at {pct(summary[worst]['mean_score'])}."]
+    return lines
+
+
+def sync_readme(lines):
+    p = ROOT / "README.md"
+    if not p.exists():
+        return
+    text = p.read_text(encoding="utf-8")
+    start, end = "<!-- RESULTS:START -->", "<!-- RESULTS:END -->"
+    if start not in text or end not in text:
+        print("README.md has no RESULTS markers; skipped --sync-readme.")
+        return
+    block = start + "\n" + "\n".join(lines) + "\n" + end
+    text = re.sub(re.escape(start) + r".*?" + re.escape(end), lambda _: block, text, flags=re.S)
+    p.write_text(text, encoding="utf-8")
+    print("Updated the results block in README.md.")
+
+
+PKG_SKIP_DIRS = {"node_modules", ".git", ".vscode", "_internal", "sandbox", "__pycache__", ".pytest_cache", "dist"}
+PKG_SKIP_FILES = {".gitignore", ".DS_Store", "Thumbs.db", "VIDEO_SCRIPT.md"}
+# Built at runtime so the checker does not match its own source.
+PKG_LEAK_NEEDLES = [b"C:" + os.sep.encode() + b"Users" + os.sep.encode(), b"One" + b"Drive"]
+
+
+def cmd_package(args):
+    """Build the submission ZIP, refusing to ship a README with no results or a leaked path/key."""
+    readme_path = ROOT / "README.md"
+    readme = readme_path.read_text(encoding="utf-8")
+    start, end = "<!-- RESULTS:START -->", "<!-- RESULTS:END -->"
+    if start not in readme or end not in readme:
+        sys.exit("README.md has no RESULTS markers; cannot verify the results section.")
+    block = readme.split(start, 1)[1].split(end, 1)[0].strip()
+    if not block or block.startswith("<!-- Filled in"):
+        sys.exit("README.md has no results yet. Run: python run_eval.py report --sync-readme")
+
+    out = Path(args.output) if args.output else ROOT / "dist" / "frontend-eval-submission.zip"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    secrets = [os.environ.get(v) for v in ("AGENTROUTER_API_KEY", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY")]
+    secrets = [k for k in secrets if k and len(k) > 12]
+    leaks, count = [], 0
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for path in sorted(ROOT.rglob("*")):
+            rel = path.relative_to(ROOT)
+            if any(part in PKG_SKIP_DIRS for part in rel.parts):
+                continue
+            if rel.name in PKG_SKIP_FILES or rel.suffix == ".zip":
+                continue
+            if not path.is_file():
+                continue
+            data = path.read_bytes()
+            if any(n in data for n in PKG_LEAK_NEEDLES) or any(k.encode() in data for k in secrets):
+                leaks.append(rel.as_posix())
+            z.write(path, rel.as_posix())
+            count += 1
+
+    size_mb = out.stat().st_size / (1024 * 1024)
+    print(f"Wrote {out}")
+    print(f"  entries: {count}   size: {size_mb:.2f} MB   README at root: {'README.md' in zipfile.ZipFile(out).namelist()}")
+    if leaks:
+        print("  WARNING: these files look like they contain a local path or a key:")
+        for f in leaks:
+            print("    " + f)
+        return 1
+    print("  no local paths or keys found in any file")
+    if size_mb > 50:
+        print("  WARNING: over the 50 MB submission limit")
+        return 1
+    print("  under the 50 MB limit")
+    return 0
+
+
 def cmd_report(args):
     all_runs = load_runs()
     if not all_runs:
         sys.exit("No results yet. Run: python run_eval.py run --models models.json")
-    runs = [r for r in all_runs if not r.get("invalid")]
-    excluded = [r for r in all_runs if r.get("invalid")]
+    runs = [r for r in all_runs if not r.get("invalid") and r.get("error") != "timeout"]
+    excluded = [r for r in all_runs if r.get("invalid") or r.get("error") == "timeout"]
     tasks = load_tasks()
     models, task_ids, grid, summary, tags = aggregate(runs, tasks)
     titles = {t["id"]: t for t in tasks}
@@ -594,7 +871,26 @@ def cmd_report(args):
         p, t = summary[m].get("levels", {}).get(n, [0, 0])
         return f"{pct(p / t)} ({p}/{t})" if t else "-"
 
-    md = ["# FieldReady-FE results", "", "Generated by `python run_eval.py report`. Full-pass = every hidden test for the task passed.", ""]
+    trials = {}
+    for r in runs:
+        trials[r["model"]] = max(trials.get(r["model"], 0), r["run"])
+    valid = {}
+    for r in runs:
+        valid.setdefault((r["model"], r["task"]), set()).add(r["run"])
+    # Only report shortfalls for models that were meant to have three trials; the one-trial
+    # baselines are described as such in the README, so listing them here would be noise.
+    short_cells = [f"`{m}` / `{t}` returned {len(valid.get((m, t), ()))} usable answer(s)"
+                   for m in models if trials.get(m, 0) >= 3
+                   for t in task_ids if len(valid.get((m, t), ())) < trials[m]]
+    md = ["# Frontend-eval results", "",
+          f"Generated {time.strftime('%Y-%m-%d %H:%M')} by `python run_eval.py report`. "
+          "Full-pass = every hidden test for the task passed. Invalid runs (empty or truncated answers) are excluded from every number below.",
+          "",
+          "| Model | Trials per task | Tasks attempted |", "|---|---|---|"]
+    for m in models:
+        attempted = len([t for t in task_ids if (m, t) in grid])
+        md.append(f"| {m} | {trials.get(m, 0)} | {attempted} / {len(task_ids)} |")
+    md.append("")
     md += ["## Summary by model", "", "| Model | Tasks fully passed | Mean test score | L1 happy path | L2 edge cases | L3 adversarial | Avg latency (s) | Est. cost (USD) |", "|---|---|---|---|---|---|---|---|"]
     for m in models:
         s = summary[m]
@@ -622,6 +918,14 @@ def cmd_report(args):
                 fails.setdefault((r["task"], t["title"]), set()).add(r["model"])
     for (task, title), ms in sorted(fails.items(), key=lambda kv: -len(kv[1]))[:15]:
         md.append(f"- `{task}`: {title} (failed by {len(ms)} model(s): {', '.join(sorted(ms))})")
+    mp = RESULTS / "mutation.json"
+    if mp.exists():
+        mut = json.loads(mp.read_text(encoding="utf-8"))
+        tot, kd = sum(r["mutants"] for r in mut), sum(r["killed"] for r in mut)
+        md += ["", "## Grader strength (mutation testing)", "",
+               f"Small bugs were injected into each reference solution; the hidden tests caught {kd} of {tot} ({pct(kd / tot) if tot else '-'}). Survivors may be equivalent (harmless) changes.", "",
+               "| Task | Bugs injected | Caught | Survivors |", "|---|---|---|---|"]
+        md += [f"| {r['task']} | {r['mutants']} | {r['killed']} | {len(r['survivors'])} |" for r in mut]
     if excluded:
         md += ["", "## Excluded runs (not model failures)", "", "These answers were empty or cut off, so they say nothing about the model and are left out of every score above.", ""]
         md += [f"- {r['model']} / {r['task']}: {r['invalid']}" for r in excluded]
@@ -645,6 +949,8 @@ def cmd_report(args):
         md += [f"- `{task}`: {title}" for task, title in sorted(both)[:25]]
     (RESULTS / "report.md").write_text("\n".join(md) + "\n", encoding="utf-8")
     write_report_html(build_report_data(all_runs, tasks), RESULTS / "report.html")
+    if getattr(args, "sync_readme", False):
+        sync_readme(readme_block(models, task_ids, grid, summary, trials, titles, short_cells))
     print("Wrote results/report.md and results/report.html")
     return 0
 
@@ -675,6 +981,12 @@ def main():
     p.add_argument("--drafter", default="claude-sonnet", help="model name (in models.json) that drafts and merges")
     p.add_argument("--reviewer", default="gpt-4o", help="model name (in models.json) that reviews")
     p.set_defaults(fn=cmd_run)
+    p = sub.add_parser("mutate", help="grader strength: inject bugs into the reference solutions and count how many the tests catch")
+    p.add_argument("--tasks", nargs="*")
+    p.add_argument("--max", type=int, default=20, help="mutants per task (random sample, seeded)")
+    p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--jobs", type=int, default=0)
+    p.set_defaults(fn=cmd_mutate)
     p = sub.add_parser("battle", help="bring your own agent: grade any HTTP endpoint on every task")
     p.add_argument("--endpoint", required=True, help="e.g. http://localhost:18789 (OpenAI-style /v1/chat/completions) or any URL with --protocol simple")
     p.add_argument("--name", required=True, help="label for the scorecard, e.g. MechAgent")
@@ -689,7 +1001,13 @@ def main():
     p.add_argument("--offline", action="store_true", help="re-grade cached answers of this agent only")
     p.add_argument("--refresh", action="store_true")
     p.set_defaults(fn=cmd_battle)
-    sub.add_parser("report").set_defaults(fn=cmd_report)
+    p = sub.add_parser("package", help="build the submission ZIP (refuses an empty results block)")
+    p.add_argument("--output", default="", help="where to write the zip (default: dist/frontend-eval-submission.zip)")
+    p.set_defaults(fn=cmd_package)
+    p = sub.add_parser("report")
+    p.add_argument("--sync-readme", dest="sync_readme", action="store_true",
+                   help="also replace the RESULTS block in README.md with the generated tables")
+    p.set_defaults(fn=cmd_report)
     args = ap.parse_args()
     sys.exit(args.fn(args))
 

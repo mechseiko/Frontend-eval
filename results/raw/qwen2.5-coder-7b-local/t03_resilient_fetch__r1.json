@@ -1,0 +1,16 @@
+{
+  "text": "```js\nexport function createResilientFetch({ fetch, sleep, random = Math.random, maxAttempts = 4, baseDelayMs = 200, maxDelayMs = 5000 }) {\n  return async function rfetch(url, options = {}) {\n    const method = (options.method || 'GET').toUpperCase();\n    if (!['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE'].includes(method) && (!options.headers || !options.headers['Idempotency-Key'])) {\n      throw new Error('Method not allowed');\n    }\n\n    let attempt = 0;\n    let lastError = null;\n\n    while (attempt < maxAttempts) {\n      attempt++;\n      try {\n        const response = await fetch(url, options);\n        if (response.ok) {\n          return response;\n        }\n        if ([408, 429, 500, 502, 503, 504].includes(response.status)) {\n          const retryAfter = response.headers.get('Retry-After');\n          if (retryAfter && !isNaN(retryAfter) && retryAfter >= 0) {\n            const delay = retryAfter * 1000;\n            if (delay > maxDelayMs) {\n              return response;\n            }\n            await sleep(delay, options.signal);\n          } else {\n            const delay = Math.floor(random() * Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)));\n            await sleep(delay, options.signal);\n          }\n        } else {\n          return response;\n        }\n      } catch (error) {\n        if (error.name === 'AbortError') {\n          throw error;\n        }\n        lastError = error;\n        if (attempt === maxAttempts) {\n          throw lastError;\n        }\n        const delay = Math.floor(random() * Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1)));\n        await sleep(delay, options.signal);\n      }\n    }\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 876,
+    "prompt_tokens_details": {
+      "cached_tokens": 49
+    },
+    "completion_tokens": 421,
+    "total_tokens": 1297
+  },
+  "latency_s": 269.2,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t03_resilient_fetch",
+  "run": 1
+}

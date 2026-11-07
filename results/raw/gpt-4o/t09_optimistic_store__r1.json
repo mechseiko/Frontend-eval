@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function createOptimisticStore(initialState) {\n  let baseState = initialState;\n  let pendingChanges = [];\n  let listeners = [];\n  let visibleState = initialState;\n\n  function notifyListeners() {\n    listeners.forEach(listener => {\n      try {\n        listener();\n      } catch (e) {\n        // Swallow errors to ensure all listeners are notified\n      }\n    });\n  }\n\n  function getState() {\n    return visibleState;\n  }\n\n  function apply(id, update) {\n    if (pendingChanges.some(change => change.id === id)) {\n      throw new Error(`Change with id ${id} already exists`);\n    }\n\n    let newVisibleState;\n    try {\n      newVisibleState = update(visibleState);\n    } catch (error) {\n      throw error;\n    }\n\n    pendingChanges.push({ id, update });\n    visibleState = newVisibleState;\n    notifyListeners();\n  }\n\n  function confirm(id) {\n    const index = pendingChanges.findIndex(change => change.id === id);\n    if (index === -1) {\n      return false;\n    }\n\n    const { update } = pendingChanges[index];\n    pendingChanges.splice(index, 1);\n    baseState = update(baseState);\n\n    visibleState = pendingChanges.reduce((state, change) => change.update(state), baseState);\n    notifyListeners();\n    return true;\n  }\n\n  function rollback(id) {\n    const index = pendingChanges.findIndex(change => change.id === id);\n    if (index === -1) {\n      return false;\n    }\n\n    pendingChanges.splice(index, 1);\n    visibleState = pendingChanges.reduce((state, change) => change.update(state), baseState);\n    notifyListeners();\n    return true;\n  }\n\n  function subscribe(listener) {\n    listeners.push(listener);\n    return function unsubscribe() {\n      listeners = listeners.filter(l => l !== listener);\n    };\n  }\n\n  return {\n    getState,\n    apply,\n    confirm,\n    rollback,\n    subscribe\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 711,
+    "completion_tokens": 413,
+    "total_tokens": 1124,
+    "cost": 0.0059075,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0059075,
+      "upstream_inference_prompt_cost": 0.0017775,
+      "upstream_inference_completions_cost": 0.00413
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 5.9,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t09_optimistic_store",
+  "run": 1
+}

@@ -1,0 +1,16 @@
+{
+  "text": "```js\nexport function computeInvoice({ lines, discountKobo = 0 }) {\n  if (!Array.isArray(lines)) {\n    throw new RangeError(\"lines must be an array\");\n  }\n  if (discountKobo < 0) {\n    throw new RangeError(\"discountKobo must be a non-negative integer\");\n  }\n  for (const line of lines) {\n    if (typeof line.sku !== 'string' || line.unitPriceKobo < 0 || !Number.isInteger(line.unitPriceKobo) || line.qty < 1 || !Number.isInteger(line.qty) || typeof line.vatExempt !== 'boolean') {\n      throw new RangeError(\"Invalid line data\");\n    }\n  }\n\n  const invoiceSubtotalKobo = lines.reduce((sum, line) => sum + line.unitPriceKobo * line.qty, 0);\n  const appliedDiscountKobo = Math.min(discountKobo, invoiceSubtotalKobo);\n  const discountAllocation = lines.map(line => Math.floor(appliedDiscountKobo * line.unitPriceKobo * line.qty / invoiceSubtotalKobo));\n  const leftoverKobo = appliedDiscountKobo - discountAllocation.reduce((sum, alloc) => sum + alloc, 0);\n  const largestRemainders = lines.map((line, index) => ({\n    index,\n    remainder: (appliedDiscountKobo * line.unitPriceKobo * line.qty / invoiceSubtotalKobo - Math.floor(appliedDiscountKobo * line.unitPriceKobo * line.qty / invoiceSubtotalKobo)) * 100\n  })).sort((a, b) => b.remainder - a.remainder);\n  for (let i = 0; i < leftoverKobo; i++) {\n    discountAllocation[largestRemainders[i].index]++;\n  }\n\n  const linesWithVat = lines.filter(line => !line.vatExempt);\n  const vatKobo = linesWithVat.reduce((sum, line) => sum + Math.round(line.netKobo * 0.075), 0);\n  const totalKobo = invoiceSubtotalKobo - appliedDiscountKobo + vatKobo;\n\n  return {\n    subtotalKobo: invoiceSubtotalKobo,\n    discountKobo: appliedDiscountKobo,\n    vatKobo: vatKobo,\n    totalKobo: totalKobo,\n    lines: lines.map((line, index) => ({\n      ...line,\n      subtotalKobo: line.unitPriceKobo * line.qty,\n      discountKobo: discountAllocation[index],\n      netKobo: line.subtotalKobo - discountAllocation[index],\n      vatKobo: line.vatExempt ? 0 : Math.round(line.netKobo * 0.075)\n    }))\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 641,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "completion_tokens": 588,
+    "total_tokens": 1229
+  },
+  "latency_s": 418.3,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t01_invoice_vat",
+  "run": 1
+}

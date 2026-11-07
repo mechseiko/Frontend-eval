@@ -1,0 +1,31 @@
+{
+  "text": "```js\nfunction isValidDate(dateString) {\n  const datePattern = /^\\d{4}-\\d{2}-\\d{2}$/;\n  if (!datePattern.test(dateString)) return false;\n  const date = new Date(dateString);\n  return date.toISOString().slice(0, 10) === dateString;\n}\n\nfunction parseDate(dateString) {\n  if (!isValidDate(dateString)) {\n    throw new RangeError(`Invalid date: ${dateString}`);\n  }\n  return new Date(dateString);\n}\n\nfunction formatDate(date) {\n  return date.toISOString().slice(0, 10);\n}\n\nfunction getWeekday(date) {\n  return date.getUTCDay();\n}\n\nfunction isWeekend(date) {\n  const day = getWeekday(date);\n  return day === 0 || day === 6;\n}\n\nfunction getObservedHolidays(holidays) {\n  const observed = new Set();\n  const weekendHolidays = [];\n\n  holidays.forEach(holiday => {\n    const date = parseDate(holiday);\n    if (isWeekend(date)) {\n      weekendHolidays.push(date);\n    } else {\n      observed.add(formatDate(date));\n    }\n  });\n\n  weekendHolidays.sort((a, b) => a - b);\n\n  weekendHolidays.forEach(date => {\n    let observedDate = new Date(date);\n    observedDate.setUTCDate(observedDate.getUTCDate() + (getWeekday(observedDate) === 6 ? 2 : 1));\n    while (observed.has(formatDate(observedDate)) || isWeekend(observedDate)) {\n      observedDate.setUTCDate(observedDate.getUTCDate() + 1);\n    }\n    observed.add(formatDate(observedDate));\n  });\n\n  return observed;\n}\n\nexport function isBusinessDay(date, holidays = []) {\n  const parsedDate = parseDate(date);\n  const observedHolidays = getObservedHolidays(holidays);\n  return !isWeekend(parsedDate) && !observedHolidays.has(formatDate(parsedDate));\n}\n\nexport function addBusinessDays(date, n, holidays = []) {\n  if (!Number.isInteger(n)) {\n    throw new RangeError(`Invalid number of days: ${n}`);\n  }\n\n  let currentDate = parseDate(date);\n  const observedHolidays = getObservedHolidays(holidays);\n\n  const step = n >= 0 ? 1 : -1;\n  let businessDaysCounted = 0;\n\n  while (businessDaysCounted !== Math.abs(n)) {\n    currentDate.setUTCDate(currentDate.getUTCDate() + step);\n    if (isBusinessDay(formatDate(currentDate), holidays)) {\n      businessDaysCounted++;\n    }\n  }\n\n  if (n === 0 && !isBusinessDay(formatDate(currentDate), holidays)) {\n    while (!isBusinessDay(formatDate(currentDate), holidays)) {\n      currentDate.setUTCDate(currentDate.getUTCDate() + 1);\n    }\n  }\n\n  return formatDate(currentDate);\n}\n\nexport function businessDaysBetween(start, end, holidays = []) {\n  const startDate = parseDate(start);\n  const endDate = parseDate(end);\n\n  if (startDate.getTime() === endDate.getTime()) return 0;\n\n  const step = startDate < endDate ? 1 : -1;\n  let currentDate = new Date(startDate);\n  let businessDaysCounted = 0;\n\n  while (currentDate.getTime() !== endDate.getTime()) {\n    currentDate.setUTCDate(currentDate.getUTCDate() + step);\n    if (isBusinessDay(formatDate(currentDate), holidays)) {\n      businessDaysCounted += step;\n    }\n  }\n\n  return businessDaysCounted;\n}\n```",
+  "usage": {
+    "prompt_tokens": 649,
+    "completion_tokens": 771,
+    "total_tokens": 1420,
+    "cost": 0.0093325,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0093325,
+      "upstream_inference_prompt_cost": 0.0016225,
+      "upstream_inference_completions_cost": 0.00771
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 8.3,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t08_business_days",
+  "run": 1
+}

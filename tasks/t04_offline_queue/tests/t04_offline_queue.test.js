@@ -247,3 +247,13 @@ describe("createOfflineQueue", () => {
     expect(h.q.peek()[0].id).toBe("a");
   });
 });
+
+describe("createOfflineQueue default limits", () => {
+  test("[max-attempts] {L2} the default maxAttempts is 5", async () => {
+    const h = make(async () => ({ ok: false }));
+    h.q.enqueue(act("a"));
+    for (let i = 0; i < 4; i++) expect(await h.q.flush()).toEqual({ sent: [], failed: [], remaining: 1 });
+    expect(await h.q.flush()).toEqual({ sent: [], failed: [{ id: "a", reason: "max-attempts" }], remaining: 0 });
+    expect(h.calls).toHaveLength(5);
+  });
+});

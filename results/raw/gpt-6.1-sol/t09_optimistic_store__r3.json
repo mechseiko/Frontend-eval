@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createOptimisticStore(initialState) {\n  let base = initialState;\n  let visible = initialState;\n  let pending = new Map();\n  const subscriptions = new Set();\n\n  function recompute(nextBase, changes) {\n    let state = nextBase;\n    for (const update of changes.values()) {\n      state = update(state);\n    }\n    return state;\n  }\n\n  function notify() {\n    // Snapshot subscriptions so unsubscription cannot disrupt this notification.\n    for (const { listener } of Array.from(subscriptions)) {\n      try {\n        listener();\n      } catch {\n        // Continue notifying the remaining listeners.\n      }\n    }\n  }\n\n  return {\n    getState() {\n      return visible;\n    },\n\n    apply(id, update) {\n      if (pending.has(id)) {\n        throw new Error(\"A change with this id is already pending.\");\n      }\n\n      const nextVisible = update(visible);\n      pending.set(id, update);\n      visible = nextVisible;\n      notify();\n    },\n\n    confirm(id) {\n      if (!pending.has(id)) {\n        return false;\n      }\n\n      const update = pending.get(id);\n      const remaining = new Map(pending);\n      remaining.delete(id);\n\n      const nextBase = update(base);\n      const nextVisible = recompute(nextBase, remaining);\n\n      base = nextBase;\n      pending = remaining;\n      visible = nextVisible;\n      notify();\n      return true;\n    },\n\n    rollback(id) {\n      if (!pending.has(id)) {\n        return false;\n      }\n\n      const remaining = new Map(pending);\n      remaining.delete(id);\n      const nextVisible = recompute(base, remaining);\n\n      pending = remaining;\n      visible = nextVisible;\n      notify();\n      return true;\n    },\n\n    subscribe(listener) {\n      const subscription = { listener };\n      subscriptions.add(subscription);\n\n      return function unsubscribe() {\n        subscriptions.delete(subscription);\n      };\n    },\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 710,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 3798,
+    "output_tokens_details": {
+      "reasoning_tokens": 3396
+    },
+    "total_tokens": 4508,
+    "prompt_tokens": 710,
+    "completion_tokens": 3798
+  },
+  "latency_s": 93.5,
+  "model": "gpt-6.1-sol",
+  "model_id": "gpt-6.1-sol",
+  "task": "t09_optimistic_store",
+  "run": 3
+}

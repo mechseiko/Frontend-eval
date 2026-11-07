@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createOptimisticStore(initialState) {\n  let base = initialState;\n  let visible = initialState;\n  let pending = new Map();\n  const subscriptions = new Set();\n\n  function notify() {\n    // Subscription changes cannot disturb this notification's ordering.\n    const snapshot = Array.from(subscriptions);\n    for (const { listener } of snapshot) {\n      try {\n        listener();\n      } catch {\n        // One listener's failure must not prevent the others from running.\n      }\n    }\n  }\n\n  function settle(id, shouldConfirm) {\n    if (!pending.has(id)) {\n      return false;\n    }\n\n    const update = pending.get(id);\n    const nextPending = new Map(pending);\n    nextPending.delete(id);\n\n    const nextBase = shouldConfirm ? update(base) : base;\n    let nextVisible = nextBase;\n\n    for (const pendingUpdate of nextPending.values()) {\n      nextVisible = pendingUpdate(nextVisible);\n    }\n\n    // Commit only after every required update has completed successfully.\n    base = nextBase;\n    pending = nextPending;\n    visible = nextVisible;\n\n    notify();\n    return true;\n  }\n\n  return {\n    getState() {\n      return visible;\n    },\n\n    apply(id, update) {\n      if (pending.has(id)) {\n        throw new Error(\"A change with this id is already pending.\");\n      }\n\n      const nextVisible = update(visible);\n      pending.set(id, update);\n      visible = nextVisible;\n      notify();\n    },\n\n    confirm(id) {\n      return settle(id, true);\n    },\n\n    rollback(id) {\n      return settle(id, false);\n    },\n\n    subscribe(listener) {\n      // Separate records make each subscription independently removable.\n      const subscription = { listener };\n      subscriptions.add(subscription);\n\n      return () => {\n        subscriptions.delete(subscription);\n      };\n    },\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 710,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 4092,
+    "output_tokens_details": {
+      "reasoning_tokens": 3703
+    },
+    "total_tokens": 4802,
+    "prompt_tokens": 710,
+    "completion_tokens": 4092
+  },
+  "latency_s": 107.8,
+  "model": "gpt-6-astra",
+  "model_id": "gpt-6-astra",
+  "task": "t09_optimistic_store",
+  "run": 3
+}

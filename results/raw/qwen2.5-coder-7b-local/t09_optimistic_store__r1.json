@@ -1,0 +1,16 @@
+{
+  "text": "```js\nexport function createOptimisticStore(initialState) {\n  let base = initialState;\n  let pending = [];\n  const listeners = [];\n\n  const getState = () => {\n    if (pending.length === 0) return base;\n    return pending.reduce((s, m) => m.update(s), base);\n  };\n\n  const apply = (id, update) => {\n    if (pending.some(m => m.id === id)) throw new Error(\"Change already pending\");\n    try {\n      const newState = update(getState());\n      pending.push({ id, update });\n      notifyListeners();\n    } catch (error) {\n      throw error;\n    }\n  };\n\n  const confirm = (id) => {\n    const index = pending.findIndex(m => m.id === id);\n    if (index === -1) return false;\n    base = pending[index].update(base);\n    pending = pending.filter((_, i) => i !== index);\n    notifyListeners();\n    return true;\n  };\n\n  const rollback = (id) => {\n    const index = pending.findIndex(m => m.id === id);\n    if (index === -1) return false;\n    pending = pending.filter((_, i) => i !== index);\n    notifyListeners();\n    return true;\n  };\n\n  const subscribe = (listener) => {\n    listeners.push(listener);\n    return () => {\n      const index = listeners.indexOf(listener);\n      if (index !== -1) listeners.splice(index, 1);\n    };\n  };\n\n  const notifyListeners = () => {\n    listeners.forEach(listener => {\n      try {\n        listener();\n      } catch (error) {\n        // Swallow errors in listeners\n      }\n    });\n  };\n\n  return {\n    getState,\n    apply,\n    confirm,\n    rollback,\n    subscribe\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 710,
+    "prompt_tokens_details": {
+      "cached_tokens": 49
+    },
+    "completion_tokens": 369,
+    "total_tokens": 1079
+  },
+  "latency_s": 228.3,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t09_optimistic_store",
+  "run": 1
+}

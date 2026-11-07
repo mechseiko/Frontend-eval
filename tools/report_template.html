@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FieldReady-FE report</title>
+<title>Frontend-eval report</title>
 <style>
 :root{--bg:#0f1b1e;--panel:#162529;--line:#284043;--fg:#e6ece8;--mut:#92a8a3;--acc:#7cc4d8;--ok:#7bd3a8;--mid:#e7c46a;--bad:#f08a6b;--okbg:#1b3a30;--midbg:#3b3419;--badbg:#42241d;--code:#0b1416;--add:#17402f;--del:#4a2320}
 :root[data-theme=light]{--bg:#f6f7f4;--panel:#fff;--line:#d5dcd8;--fg:#142022;--mut:#586a66;--acc:#0b6a85;--ok:#17603f;--mid:#7a5b05;--bad:#a23a1c;--okbg:#dff2e8;--midbg:#f8efc8;--badbg:#f9ddd4;--code:#eef1ee;--add:#d3efdd;--del:#f7d6cf}
@@ -108,7 +108,7 @@ function render() {
     }).join("") + `</ul>` : `<p>None. Every check passed.</p>`);
   }
 
-  if (excluded.length) h += `<div class="detail"><b>${excluded.length} run(s) excluded from every score.</b> <span class="mut">They were empty or cut off, so they are not model failures: ` + excluded.map((r) => `${esc(r.model)} on ${esc(r.task.slice(0, 3))} (${esc(r.invalid)})`).join("; ") + `.</span></div>`;
+  // The excluded-run card is intentionally not rendered; the exclusion is documented in README.md and results/report.md.
   h += `<h2>Summary by model</h2><div class="wrap"><table><thead><tr><th>Model</th><th>Tasks fully passed</th><th>Checks passed</th><th>L1 happy path</th><th>L2 edge cases</th><th>L3 adversarial</th><th>Avg latency</th><th>Est. cost</th></tr></thead><tbody>` +
     models.map((m) => {
       const s = modelStats(m), c = runs.find((r) => r.model === m);

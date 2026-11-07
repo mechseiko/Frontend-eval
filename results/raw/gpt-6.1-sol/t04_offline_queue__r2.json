@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function createOfflineQueue({\n  storage,\n  send,\n  key = \"queue:v1\",\n  maxAttempts = 5,\n}) {\n  let items = [];\n\n  try {\n    const stored = JSON.parse(storage.getItem(key));\n    if (Array.isArray(stored)) {\n      items = stored;\n    }\n  } catch {\n    // Invalid stored data starts an empty queue.\n  }\n\n  let inFlight = null;\n  let runningFlush = null;\n\n  function persist() {\n    storage.setItem(key, JSON.stringify(items));\n  }\n\n  function enqueue(action) {\n    if (items.some((item) => item.id === action.id)) {\n      return;\n    }\n\n    const existing =\n      action.dedupeKey !== undefined\n        ? items.find(\n            (item) =>\n              item !== inFlight && item.dedupeKey === action.dedupeKey,\n          )\n        : undefined;\n\n    if (existing) {\n      existing.type = action.type;\n      existing.payload = action.payload;\n      existing.attempts = 0;\n    } else {\n      items.push({\n        id: action.id,\n        type: action.type,\n        payload: action.payload,\n        dedupeKey: action.dedupeKey,\n        attempts: 0,\n      });\n    }\n\n    persist();\n  }\n\n  function flush() {\n    if (runningFlush !== null) {\n      return runningFlush;\n    }\n\n    let resolveFlush;\n    let rejectFlush;\n    const promise = new Promise((resolve, reject) => {\n      resolveFlush = resolve;\n      rejectFlush = reject;\n    });\n\n    // Install the promise before send can make a reentrant flush call.\n    runningFlush = promise;\n\n    (async () => {\n      const sent = [];\n      const failed = [];\n\n      try {\n        while (items.length > 0) {\n          const item = items[0];\n          inFlight = item;\n\n          let outcome = \"retryable\";\n\n          try {\n            const response = await send({\n              id: item.id,\n              type: item.type,\n              payload: item.payload,\n            });\n\n            const ok = response == null ? undefined : response.ok;\n\n            if (ok === true) {\n              outcome = \"success\";\n            } else if (ok === false && response.retryable === false) {\n              outcome = \"rejected\";\n            }\n          } catch {\n            // Rejections and synchronous send errors are retryable.\n          }\n\n          if (outcome === \"success\") {\n            items.shift();\n            persist();\n            sent.push(item.id);\n          } else if (outcome === \"rejected\") {\n            items.shift();\n            persist();\n            failed.push({ id: item.id, reason: \"rejected\" });\n          } else {\n            item.attempts += 1;\n            persist();\n\n            if (item.attempts >= maxAttempts) {\n              items.shift();\n              persist();\n              failed.push({ id: item.id, reason: \"max-attempts\" });\n            }\n\n            break;\n          }\n\n          inFlight = null;\n        }\n\n        resolveFlush({ sent, failed, remaining: items.length });\n      } catch (error) {\n        rejectFlush(error);\n      } finally {\n        inFlight = null;\n        runningFlush = null;\n      }\n    })();\n\n    return promise;\n  }\n\n  return {\n    enqueue,\n    flush,\n    size() {\n      return items.length;\n    },\n    peek() {\n      return items.map((item) => ({\n        id: item.id,\n        type: item.type,\n        payload: item.payload,\n        dedupeKey: item.dedupeKey,\n        attempts: item.attempts,\n      }));\n    },\n  };\n}\n```",
+  "usage": {
+    "input_tokens": 867,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 11121,
+    "output_tokens_details": {
+      "reasoning_tokens": 10358
+    },
+    "total_tokens": 11988,
+    "prompt_tokens": 867,
+    "completion_tokens": 11121
+  },
+  "latency_s": 250.2,
+  "model": "gpt-6.1-sol",
+  "model_id": "gpt-6.1-sol",
+  "task": "t04_offline_queue",
+  "run": 2
+}

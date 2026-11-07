@@ -59,17 +59,17 @@ describe("Dialog", () => {
     expect(screen.getByRole("button", { name: "Go" })).toHaveFocus();
   });
 
-  test("[initial-focus] focuses the dialog itself when nothing is focusable", () => {
+  test("[initial-focus] {L2} focuses the dialog itself when nothing is focusable", () => {
     render(<Dialog open onClose={() => {}} title="T"><p>Read only</p><button disabled>No</button></Dialog>);
     expect(screen.getByRole("dialog")).toHaveFocus();
   });
 
-  test("[initial-focus] skips disabled controls and hidden inputs", () => {
+  test("[initial-focus] {L2} skips disabled controls and hidden inputs", () => {
     render(<Dialog open onClose={() => {}} title="T"><button disabled>x</button><input type="hidden" /><input aria-label="real" /></Dialog>);
     expect(screen.getByLabelText("real")).toHaveFocus();
   });
 
-  test("[focus-trap] Tab on the last element wraps to the first", async () => {
+  test("[focus-trap] {L2} Tab on the last element wraps to the first", async () => {
     const user = userEvent.setup();
     render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     await user.tab();
@@ -79,14 +79,14 @@ describe("Dialog", () => {
     expect(screen.getByLabelText("name")).toHaveFocus();
   });
 
-  test("[focus-trap] Shift+Tab on the first element wraps to the last", async () => {
+  test("[focus-trap] {L2} Shift+Tab on the first element wraps to the last", async () => {
     const user = userEvent.setup();
     render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     await user.tab({ shift: true });
     expect(screen.getByRole("link", { name: "Help" })).toHaveFocus();
   });
 
-  test("[focus-trap] focus never leaves the dialog while tabbing around", async () => {
+  test("[focus-trap] {L2} focus never leaves the dialog while tabbing around", async () => {
     const user = userEvent.setup();
     render(
       <div>
@@ -106,7 +106,7 @@ describe("Dialog", () => {
     }
   });
 
-  test("[focus-trap] focus on the dialog container: Tab goes first, Shift+Tab goes last", async () => {
+  test("[focus-trap] {L2} focus on the dialog container: Tab goes first, Shift+Tab goes last", async () => {
     const user = userEvent.setup();
     render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     const dlg = screen.getByRole("dialog");
@@ -118,7 +118,7 @@ describe("Dialog", () => {
     expect(screen.getByRole("link", { name: "Help" })).toHaveFocus();
   });
 
-  test("[focus-trap] with nothing focusable, Tab keeps focus on the dialog", async () => {
+  test("[focus-trap] {L2} with nothing focusable, Tab keeps focus on the dialog", async () => {
     const user = userEvent.setup();
     render(<Dialog open onClose={() => {}} title="T"><p>text</p></Dialog>);
     await user.tab();
@@ -127,7 +127,7 @@ describe("Dialog", () => {
     expect(screen.getByRole("dialog")).toHaveFocus();
   });
 
-  test("[focus-trap] elements with tabindex 0 count, tabindex -1 do not", async () => {
+  test("[focus-trap] {L2} elements with tabindex 0 count, tabindex -1 do not", async () => {
     const user = userEvent.setup();
     render(<Dialog open onClose={() => {}} title="T"><div tabIndex={0} data-testid="a">a</div><div tabIndex={-1}>skip</div><div tabIndex={0} data-testid="b">b</div></Dialog>);
     expect(screen.getByTestId("a")).toHaveFocus();
@@ -176,7 +176,7 @@ describe("Dialog", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  test("[backdrop-drag] press inside, release on the backdrop does not close", () => {
+  test("[backdrop-drag] {L3} press inside, release on the backdrop does not close", () => {
     const onClose = jest.fn();
     render(<Dialog open onClose={onClose} title="T">{body}</Dialog>);
     fireEvent.mouseDown(screen.getByLabelText("name"));
@@ -188,7 +188,7 @@ describe("Dialog", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  test("[restore-focus] focus returns to the opener when closed", async () => {
+  test("[restore-focus] {L2} focus returns to the opener when closed", async () => {
     const user = userEvent.setup();
     render(<Harness>{body}</Harness>);
     const opener = screen.getByRole("button", { name: "Open" });
@@ -199,7 +199,7 @@ describe("Dialog", () => {
     expect(opener).toHaveFocus();
   });
 
-  test("[restore-focus] focus returns to the opener when closed by the backdrop", async () => {
+  test("[restore-focus] {L2} focus returns to the opener when closed by the backdrop", async () => {
     const user = userEvent.setup();
     render(<Harness>{body}</Harness>);
     const opener = screen.getByRole("button", { name: "Open" });
@@ -210,7 +210,7 @@ describe("Dialog", () => {
     expect(opener).toHaveFocus();
   });
 
-  test("[restore-focus] restores focus on unmount while open", () => {
+  test("[restore-focus] {L2} restores focus on unmount while open", () => {
     const opener = document.createElement("button");
     document.body.appendChild(opener);
     opener.focus();
@@ -221,7 +221,7 @@ describe("Dialog", () => {
     opener.remove();
   });
 
-  test("[restore-focus] does not throw if the opener was removed", () => {
+  test("[restore-focus] {L2} does not throw if the opener was removed", () => {
     const opener = document.createElement("button");
     document.body.appendChild(opener);
     opener.focus();
@@ -230,7 +230,7 @@ describe("Dialog", () => {
     expect(() => rerender(<Dialog open={false} onClose={() => {}} title="T">{body}</Dialog>)).not.toThrow();
   });
 
-  test("[no-refocus] re-rendering with new props does not move focus", async () => {
+  test("[no-refocus] {L3} re-rendering with new props does not move focus", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Dialog open onClose={() => {}} title="One">{body}</Dialog>);
     await user.tab();
@@ -241,7 +241,7 @@ describe("Dialog", () => {
     expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
   });
 
-  test("[no-refocus] a new onClose identity does not restore or re-run initial focus", async () => {
+  test("[no-refocus] {L3} a new onClose identity does not restore or re-run initial focus", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     await user.tab();
@@ -249,7 +249,7 @@ describe("Dialog", () => {
     expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
   });
 
-  test("[scroll-lock] overflow is hidden while open and the previous value is restored", () => {
+  test("[scroll-lock] {L2} overflow is hidden while open and the previous value is restored", () => {
     document.body.style.overflow = "scroll";
     const { rerender } = render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     expect(document.body.style.overflow).toBe("hidden");
@@ -257,7 +257,7 @@ describe("Dialog", () => {
     expect(document.body.style.overflow).toBe("scroll");
   });
 
-  test("[scroll-lock] an empty previous value is restored to empty, also on unmount", () => {
+  test("[scroll-lock] {L2} an empty previous value is restored to empty, also on unmount", () => {
     document.body.style.overflow = "";
     const { unmount } = render(<Dialog open onClose={() => {}} title="T">{body}</Dialog>);
     expect(document.body.style.overflow).toBe("hidden");
@@ -265,7 +265,7 @@ describe("Dialog", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
-  test("[scroll-lock] re-renders while open do not capture hidden as the previous value", () => {
+  test("[scroll-lock] {L2} re-renders while open do not capture hidden as the previous value", () => {
     document.body.style.overflow = "auto";
     const { rerender } = render(<Dialog open onClose={() => {}} title="A">{body}</Dialog>);
     rerender(<Dialog open onClose={() => {}} title="B">{body}</Dialog>);

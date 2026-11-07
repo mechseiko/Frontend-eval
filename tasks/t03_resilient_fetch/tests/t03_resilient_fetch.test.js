@@ -382,3 +382,17 @@ describe("createResilientFetch hardening", () => {
     }
   });
 });
+
+describe("createResilientFetch default limits", () => {
+  test("[retry-after] {L2} with default settings Retry-After 5 is honoured (5000 ms is not above the cap)", async () => {
+    const h = harness([res(503, { "Retry-After": "5" }), res(200)]);
+    expect((await h.rfetch("/a")).status).toBe(200);
+    expect(h.delays.map((d) => d.ms)).toEqual([5000]);
+  });
+
+  test("[backoff] {L2} the default 5000 ms cap applies to a long outage", async () => {
+    const h = harness([...Array(7).fill(0).map(() => netErr()), res(200)], { maxAttempts: 8, random: () => 0.999 });
+    await h.rfetch("/a");
+    expect(h.delays.map((d) => d.ms)).toEqual([199, 399, 799, 1598, 3196, 4995, 4995]);
+  });
+});

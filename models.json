@@ -1,0 +1,59 @@
+{
+  "models": [
+    {
+      "name": "gpt-6.1-sol",
+      "base_url": "https://agentrouter.org/v1",
+      "api_key_env": "AGENTROUTER_API_KEY",
+      "model": "gpt-6.1-sol",
+      "protocol": "responses",
+      "user_agent": "claude-cli/2.0.0 (external, cli)",
+      "temperature": 0,
+      "max_tokens": 32000,
+      "timeout_s": 600,
+      "disabled": false
+    },
+    {
+      "name": "gpt-6-astra",
+      "base_url": "https://agentrouter.org/v1",
+      "api_key_env": "AGENTROUTER_API_KEY",
+      "model": "gpt-6-astra",
+      "protocol": "responses",
+      "user_agent": "claude-cli/2.0.0 (external, cli)",
+      "temperature": 0,
+      "max_tokens": 32000,
+      "timeout_s": 600,
+      "disabled": false
+    },
+    {
+      "name": "gpt-5.6-sol",
+      "base_url": "https://agentrouter.org/v1",
+      "api_key_env": "AGENTROUTER_API_KEY",
+      "model": "gpt-5.6-sol",
+      "protocol": "responses",
+      "user_agent": "claude-cli/2.0.0 (external, cli)",
+      "temperature": 0,
+      "max_tokens": 32000,
+      "timeout_s": 600,
+      "disabled": false
+    },
+    {
+      "name": "gpt-4o",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "model": "openai/gpt-4o",
+      "temperature": 0,
+      "max_tokens": 4000,
+      "disabled": true
+    },
+    {
+      "name": "qwen2.5-coder-7b-local",
+      "base_url": "http://localhost:11434/v1",
+      "api_key_env": null,
+      "model": "qwen2.5-coder:7b",
+      "temperature": 0,
+      "max_tokens": 2048,
+      "timeout_s": 2400,
+      "disabled": true
+    }
+  ]
+}

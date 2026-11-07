@@ -10,11 +10,11 @@ describe("normalizeNigerianPhone", () => {
   });
 
   test.each(["+234(0)803 123 4567", "+2340803 123 4567", "2340803 123 4567", "+234 (0) 803 123 4567"])(
-    "[country-zero] trunk digit after the country code is tolerated: %j", (s) => {
+    "[country-zero] {L2} trunk digit after the country code is tolerated: %j", (s) => {
       expect(norm(s)).toBe("+2348031234567");
     });
 
-  test("[formats] 00234 international prefix", () => {
+  test("[formats] {L2} 00234 international prefix", () => {
     expect(norm("002348031234567")).toBe("+2348031234567");
     expect(norm("00234 0803 123 4567")).toBe("+2348031234567");
   });
@@ -36,18 +36,18 @@ describe("normalizeNigerianPhone", () => {
       expect(norm(s)).toBeNull();
     });
 
-  test("[country-zero] only one trunk zero is dropped", () => {
+  test("[country-zero] {L2} only one trunk zero is dropped", () => {
     expect(norm("+23400803 123 4567")).toBeNull();
     expect(norm("0234 803 123 4567")).toBeNull();
   });
 
   test.each(["", "   ", "abc", "0803abc4567", "0803 123 4567 ext 2", "++2348031234567", "+234803+1234567",
     "+14155552671", "+0803123 4567", "tel:+2348031234567", "+2348031234567x", "٠٨٠٣١٢٣٤٥٦٧"])(
-    "[garbage] rejects %j", (s) => {
+    "[garbage] {L2} rejects %j", (s) => {
       expect(norm(s)).toBeNull();
     });
 
-  test("[garbage] non-strings return null", () => {
+  test("[garbage] {L2} non-strings return null", () => {
     expect(norm(null)).toBeNull();
     expect(norm(undefined)).toBeNull();
     expect(norm(8031234567)).toBeNull();

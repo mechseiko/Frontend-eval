@@ -1,0 +1,22 @@
+{
+  "text": "```jsx\nimport React, { useId, useLayoutEffect, useRef } from \"react\";\n\nconst FOCUSABLE_SELECTOR =\n  \"a[href], button, input, select, textarea, [tabindex]\";\n\nfunction getFocusableElements(dialog) {\n  return Array.from(dialog.querySelectorAll(FOCUSABLE_SELECTOR)).filter(\n    (element) =>\n      element.tabIndex !== -1 &&\n      !element.matches(\":disabled\") &&\n      !(element.tagName === \"INPUT\" && element.type === \"hidden\")\n  );\n}\n\nexport function Dialog({ open, onClose, title, children }) {\n  const titleId = useId();\n  const dialogRef = useRef(null);\n  const pressedOnBackdropRef = useRef(false);\n\n  useLayoutEffect(() => {\n    if (!open) return;\n\n    const dialog = dialogRef.current;\n    const doc = dialog.ownerDocument;\n    const body = doc.body;\n    const previousFocus = doc.activeElement;\n    const previousOverflow = body.style.overflow;\n    const previousOverflowPriority =\n      body.style.getPropertyPriority(\"overflow\");\n\n    pressedOnBackdropRef.current = false;\n    body.style.overflow = \"hidden\";\n\n    const initialTarget =\n      dialog.querySelector(\"[data-autofocus]\") ||\n      getFocusableElements(dialog)[0] ||\n      dialog;\n\n    initialTarget.focus();\n\n    return () => {\n      pressedOnBackdropRef.current = false;\n      body.style.setProperty(\n        \"overflow\",\n        previousOverflow,\n        previousOverflowPriority\n      );\n\n      if (\n        previousFocus &&\n        previousFocus !== body &&\n        doc.contains(previousFocus) &&\n        typeof previousFocus.focus === \"function\"\n      ) {\n        previousFocus.focus();\n      }\n    };\n  }, [open]);\n\n  function handleKeyDown(event) {\n    if (event.key === \"Escape\") {\n      event.preventDefault();\n      event.stopPropagation();\n\n      if (!event.repeat) {\n        onClose();\n      }\n      return;\n    }\n\n    if (event.key !== \"Tab\") return;\n\n    const dialog = event.currentTarget;\n    const focusableElements = getFocusableElements(dialog);\n\n    if (focusableElements.length === 0) {\n      event.preventDefault();\n      dialog.focus();\n      return;\n    }\n\n    const first = focusableElements[0];\n    const last = focusableElements[focusableElements.length - 1];\n    const activeElement = dialog.ownerDocument.activeElement;\n\n    // This also handles focus on the dialog or a tabindex=\"-1\" descendant.\n    const shouldWrap =\n      !focusableElements.includes(activeElement) ||\n      (event.shiftKey ? activeElement === first : activeElement === last);\n\n    if (shouldWrap) {\n      event.preventDefault();\n      (event.shiftKey ? last : first).focus();\n    }\n  }\n\n  function handleBackdropPress(event) {\n    pressedOnBackdropRef.current = event.target === event.currentTarget;\n  }\n\n  function handleBackdropClick(event) {\n    const shouldClose =\n      pressedOnBackdropRef.current && event.target === event.currentTarget;\n\n    pressedOnBackdropRef.current = false;\n\n    if (shouldClose) {\n      onClose();\n    }\n  }\n\n  if (!open) return null;\n\n  return (\n    <div\n      data-testid=\"backdrop\"\n      onPointerDownCapture={handleBackdropPress}\n      onMouseDownCapture={handleBackdropPress}\n      onClickCapture={handleBackdropClick}\n    >\n      <div\n        ref={dialogRef}\n        role=\"dialog\"\n        aria-modal=\"true\"\n        aria-labelledby={titleId}\n        tabIndex={-1}\n        onKeyDown={handleKeyDown}\n      >\n        <h2 id={titleId}>{title}</h2>\n        {children}\n      </div>\n    </div>\n  );\n}\n```",
+  "usage": {
+    "input_tokens": 754,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 24033,
+    "output_tokens_details": {
+      "reasoning_tokens": 23254
+    },
+    "total_tokens": 24787,
+    "prompt_tokens": 754,
+    "completion_tokens": 24033
+  },
+  "latency_s": 559.0,
+  "model": "gpt-6-astra",
+  "model_id": "gpt-6-astra",
+  "task": "t07_dialog_a11y",
+  "run": 3
+}

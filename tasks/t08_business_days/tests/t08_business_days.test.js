@@ -134,3 +134,16 @@ describe("business days", () => {
     expect(() => isBD("2026-11-02", ["2026-02-30"])).toThrow(RangeError);
   });
 });
+
+// Added after mutation testing showed these rules were not pinned down by any check.
+describe("business days: lone weekend holidays", () => {
+  test("[observed] {L2} a lone Sunday holiday is observed on the Monday right after it", () => {
+    expect(isBD("2026-11-09", ["2026-11-08"])).toBe(false);
+    expect(isBD("2026-11-10", ["2026-11-08"])).toBe(true);
+  });
+  test("[observed] {L2} a lone Saturday holiday is observed on the following Monday", () => {
+    expect(isBD("2026-11-09", ["2026-11-07"])).toBe(false);
+    expect(isBD("2026-11-10", ["2026-11-07"])).toBe(true);
+    expect(isBD("2026-11-06", ["2026-11-07"])).toBe(true);
+  });
+});

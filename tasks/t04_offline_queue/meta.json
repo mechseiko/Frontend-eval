@@ -6,5 +6,5 @@
   "target": "src/solution.js",
   "why_it_matters": "Field apps queue actions while offline. Losing queued work on reload, double-sending during overlapping syncs, or reordering actions corrupts user data.",
   "expected_failure_mode": "Models persist only on enqueue, let overlapping flushes double-send, or continue past a network failure and reorder the queue.",
-  "n_tests": 30
+  "n_tests": 31
 }

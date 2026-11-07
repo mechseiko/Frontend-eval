@@ -1,0 +1,11 @@
+# Frontend-eval Python dependencies: none.
+#
+# run_eval.py is written against the Python 3.9+ standard library only
+# (argparse, json, subprocess, urllib, pathlib, concurrent.futures, difflib, zlib-free),
+# so `pip install -r requirements.txt` is a no-op and judges never need a package index.
+#
+# The JavaScript side is pinned in package.json / package-lock.json:
+#
+#     npm ci        # Jest 29, React 18, Testing Library, Babel
+#
+# Node 20+ is required. Python 3.9+ is required. Nothing else.

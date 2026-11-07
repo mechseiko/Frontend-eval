@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function normalizeNigerianPhone(input) {\n  if (typeof input !== 'string') {\n    return null;\n  }\n\n  // Remove whitespace, '-', '.', '(', ')'\n  const cleanedInput = input.replace(/[\\s\\-\\.\\(\\)]/g, '');\n\n  // Check for invalid characters\n  if (/[^+\\d]/.test(cleanedInput) || (cleanedInput.match(/\\+/g) || []).length > 1) {\n    return null;\n  }\n\n  // Remove leading '+'\n  let digits = cleanedInput.startsWith('+') ? cleanedInput.slice(1) : cleanedInput;\n\n  // Handle country code\n  if (digits.startsWith('234')) {\n    digits = digits.slice(3);\n  } else if (digits.startsWith('00234')) {\n    digits = digits.slice(5);\n  } else if (digits.startsWith('0')) {\n    digits = digits.slice(1);\n  } else {\n    return null;\n  }\n\n  // Validate national number\n  if (!/^[789][01]\\d{8}$/.test(digits)) {\n    return null;\n  }\n\n  return `+234${digits}`;\n}\n\nexport function formatNigerianPhone(input) {\n  const normalized = normalizeNigerianPhone(input);\n  if (normalized === null) {\n    return null;\n  }\n\n  const nationalNumber = normalized.slice(4); // Remove '+234'\n  return `0${nationalNumber.slice(0, 3)} ${nationalNumber.slice(3, 6)} ${nationalNumber.slice(6)}`;\n}\n```",
+  "usage": {
+    "prompt_tokens": 649,
+    "completion_tokens": 329,
+    "total_tokens": 978,
+    "cost": 0.0049125,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0049125,
+      "upstream_inference_prompt_cost": 0.0016225,
+      "upstream_inference_completions_cost": 0.00329
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 3.8,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t02_ng_phone",
+  "run": 1
+}

@@ -1,0 +1,417 @@
+[
+  {
+    "task": "t01_invoice_vat",
+    "reference": {
+      "passed": 21,
+      "total": 21
+    },
+    "wrong": [
+      {
+        "name": "float_total_vat",
+        "passed": 11,
+        "total": 21,
+        "caught_by": [
+          "allocation",
+          "discount-allocation",
+          "fuzz-kobo",
+          "fuzz-large",
+          "validation",
+          "vat-rounding"
+        ]
+      },
+      {
+        "name": "no_validation_floor",
+        "passed": 7,
+        "total": 21,
+        "caught_by": [
+          "allocation",
+          "clamp",
+          "discount-allocation",
+          "fuzz-kobo",
+          "fuzz-large",
+          "large-values",
+          "validation",
+          "vat-rounding"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 21
+    }
+  },
+  {
+    "task": "t02_ng_phone",
+    "reference": {
+      "passed": 49,
+      "total": 49
+    },
+    "wrong": [
+      {
+        "name": "last10_digits",
+        "passed": 40,
+        "total": 49,
+        "caught_by": [
+          "country-zero",
+          "garbage",
+          "prefix"
+        ]
+      },
+      {
+        "name": "no_trunk_handling",
+        "passed": 40,
+        "total": 49,
+        "caught_by": [
+          "country-zero",
+          "display",
+          "formats"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 49
+    }
+  },
+  {
+    "task": "t03_resilient_fetch",
+    "reference": {
+      "passed": 60,
+      "total": 60
+    },
+    "wrong": [
+      {
+        "name": "naive_retry",
+        "passed": 21,
+        "total": 60,
+        "caught_by": [
+          "abort",
+          "args",
+          "backoff",
+          "exhaust",
+          "exhaustion",
+          "fuzz-sequence",
+          "no-retry-status",
+          "post-idempotency",
+          "retry-after"
+        ]
+      },
+      {
+        "name": "no_post_safety",
+        "passed": 48,
+        "total": 60,
+        "caught_by": [
+          "abort",
+          "fuzz-sequence",
+          "post-idempotency",
+          "retry-after"
+        ]
+      },
+      {
+        "name": "retry_after_zero_falsy",
+        "passed": 57,
+        "total": 60,
+        "caught_by": [
+          "fuzz-sequence",
+          "retry-after"
+        ]
+      },
+      {
+        "name": "stale_response_after_net_error",
+        "passed": 57,
+        "total": 60,
+        "caught_by": [
+          "exhaust",
+          "exhaustion",
+          "fuzz-sequence"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 60
+    }
+  },
+  {
+    "task": "t04_offline_queue",
+    "reference": {
+      "passed": 31,
+      "total": 31
+    },
+    "wrong": [
+      {
+        "name": "naive_queue",
+        "passed": 13,
+        "total": 31,
+        "caught_by": [
+          "corrupt-storage",
+          "dedupe",
+          "fifo-stop",
+          "idempotent-id",
+          "in-flight-dedupe",
+          "max-attempts",
+          "persistence",
+          "single-flight"
+        ]
+      },
+      {
+        "name": "no_inflight_rules",
+        "passed": 25,
+        "total": 31,
+        "caught_by": [
+          "dedupe",
+          "in-flight-dedupe",
+          "max-attempts",
+          "single-flight"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 31
+    }
+  },
+  {
+    "task": "t05_payment_ledger",
+    "reference": {
+      "passed": 41,
+      "total": 41
+    },
+    "wrong": [
+      {
+        "name": "deferred_requeue_on_duplicate",
+        "passed": 37,
+        "total": 41,
+        "caught_by": [
+          "deferred-refund",
+          "fuzz-stream"
+        ]
+      },
+      {
+        "name": "deferred_stops_at_overflow",
+        "passed": 38,
+        "total": 41,
+        "caught_by": [
+          "deferred-refund",
+          "fuzz-stream"
+        ]
+      },
+      {
+        "name": "last_event_wins",
+        "passed": 13,
+        "total": 41,
+        "caught_by": [
+          "amount-mismatch",
+          "deferred-refund",
+          "fuzz-stream",
+          "invalid-amount",
+          "no-time-ordering",
+          "out-of-order",
+          "refund",
+          "terminal",
+          "validation"
+        ]
+      },
+      {
+        "name": "no_deferral",
+        "passed": 14,
+        "total": 41,
+        "caught_by": [
+          "amount-mismatch",
+          "deferred-refund",
+          "duplicate",
+          "fuzz-stream",
+          "invalid-amount",
+          "out-of-order",
+          "refund",
+          "validation"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 41
+    }
+  },
+  {
+    "task": "t06_search_box",
+    "reference": {
+      "passed": 24,
+      "total": 24
+    },
+    "wrong": [
+      {
+        "name": "naive_search",
+        "passed": 8,
+        "total": 24,
+        "caught_by": [
+          "abort",
+          "debounce",
+          "dedupe-query",
+          "error",
+          "min-chars",
+          "render",
+          "retry",
+          "stale-response",
+          "unmount"
+        ]
+      },
+      {
+        "name": "no_dedupe_no_unmount",
+        "passed": 19,
+        "total": 24,
+        "caught_by": [
+          "dedupe-query",
+          "min-chars",
+          "retry",
+          "unmount"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 2,
+      "total": 24
+    }
+  },
+  {
+    "task": "t07_dialog_a11y",
+    "reference": {
+      "passed": 27,
+      "total": 27
+    },
+    "wrong": [
+      {
+        "name": "escape_and_aria_only",
+        "passed": 10,
+        "total": 27,
+        "caught_by": [
+          "backdrop-drag",
+          "focus-trap",
+          "initial-focus",
+          "no-refocus",
+          "restore-focus",
+          "scroll-lock"
+        ]
+      },
+      {
+        "name": "no_edge_cases",
+        "passed": 18,
+        "total": 27,
+        "caught_by": [
+          "backdrop-drag",
+          "focus-trap",
+          "initial-focus",
+          "no-refocus",
+          "scroll-lock"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 7,
+      "total": 27
+    }
+  },
+  {
+    "task": "t08_business_days",
+    "reference": {
+      "passed": 30,
+      "total": 30
+    },
+    "wrong": [
+      {
+        "name": "local_time_naive",
+        "passed": 9,
+        "total": 30,
+        "caught_by": [
+          "between",
+          "holidays",
+          "observed",
+          "validation",
+          "zero"
+        ]
+      },
+      {
+        "name": "utc_but_simple_holidays",
+        "passed": 15,
+        "total": 30,
+        "caught_by": [
+          "observed",
+          "validation",
+          "zero"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 30
+    }
+  },
+  {
+    "task": "t09_optimistic_store",
+    "reference": {
+      "passed": 27,
+      "total": 27
+    },
+    "wrong": [
+      {
+        "name": "confirm_in_apply_order",
+        "passed": 23,
+        "total": 27,
+        "caught_by": [
+          "confirm-order",
+          "fuzz-ops",
+          "rollback-middle"
+        ]
+      },
+      {
+        "name": "no_base_tracking",
+        "passed": 9,
+        "total": 27,
+        "caught_by": [
+          "apply",
+          "bad-update",
+          "confirm-order",
+          "duplicate-id",
+          "fuzz-ops",
+          "listener-error",
+          "memo",
+          "no-mutation",
+          "notify",
+          "rollback-middle",
+          "unsubscribe"
+        ]
+      },
+      {
+        "name": "rollback_oldest_drops_rest",
+        "passed": 23,
+        "total": 27,
+        "caught_by": [
+          "fuzz-ops",
+          "no-mutation",
+          "notify",
+          "rollback-middle"
+        ]
+      },
+      {
+        "name": "snapshot_rollback",
+        "passed": 10,
+        "total": 27,
+        "caught_by": [
+          "bad-update",
+          "confirm-order",
+          "duplicate-id",
+          "fuzz-ops",
+          "listener-error",
+          "memo",
+          "no-mutation",
+          "notify",
+          "rollback-middle"
+        ]
+      }
+    ],
+    "starter": {
+      "passed": 0,
+      "total": 27
+    }
+  }
+]

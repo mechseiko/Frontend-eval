@@ -1,0 +1,22 @@
+{
+  "text": "```js\nfunction getNationalNumber(input) {\n  if (typeof input !== \"string\") {\n    return null;\n  }\n\n  const compact = input.replace(/[\\s().-]/g, \"\");\n\n  if (!/^\\+?\\d+$/.test(compact)) {\n    return null;\n  }\n\n  let national;\n\n  if (compact.startsWith(\"+\")) {\n    if (!compact.startsWith(\"+234\")) {\n      return null;\n    }\n    national = compact.slice(4);\n  } else if (compact.startsWith(\"00234\")) {\n    national = compact.slice(5);\n  } else if (compact.startsWith(\"234\")) {\n    national = compact.slice(3);\n  } else if (compact.startsWith(\"0\") && !compact.startsWith(\"00\")) {\n    national = compact.slice(1);\n  } else {\n    national = compact;\n  }\n\n  if (\n    (compact.startsWith(\"+234\") ||\n      compact.startsWith(\"00234\") ||\n      compact.startsWith(\"234\")) &&\n    national.startsWith(\"0\")\n  ) {\n    national = national.slice(1);\n  }\n\n  return /^[789][01]\\d{8}$/.test(national) ? national : null;\n}\n\nexport function normalizeNigerianPhone(input) {\n  const national = getNationalNumber(input);\n  return national === null ? null : `+234${national}`;\n}\n\nexport function formatNigerianPhone(input) {\n  const national = getNationalNumber(input);\n\n  if (national === null) {\n    return null;\n  }\n\n  return `0${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;\n}\n```",
+  "usage": {
+    "input_tokens": 648,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 1906,
+    "output_tokens_details": {
+      "reasoning_tokens": 1552
+    },
+    "total_tokens": 2554,
+    "prompt_tokens": 648,
+    "completion_tokens": 1906
+  },
+  "latency_s": 35.2,
+  "model": "gpt-5.6-sol",
+  "model_id": "gpt-5.6-sol",
+  "task": "t02_ng_phone",
+  "run": 2
+}

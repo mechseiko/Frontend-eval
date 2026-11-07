@@ -6,5 +6,5 @@
   "target": "src/solution.js",
   "why_it_matters": "Delivery dates, loan due dates and SLA clocks depend on business days. Off-by-one errors from timezone or DST handling, and holidays that fall on weekends, produce wrong promises to customers.",
   "expected_failure_mode": "Models use local-time Date arithmetic (breaks across DST) or mishandle weekend holidays that collide with each other or with a weekday holiday.",
-  "n_tests": 28
+  "n_tests": 30
 }

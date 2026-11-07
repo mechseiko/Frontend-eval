@@ -1,0 +1,31 @@
+{
+  "text": "```js\nexport function createOfflineQueue({ storage, send, key = \"queue:v1\", maxAttempts = 5 }) {\n  let queue = [];\n  let inFlight = null;\n  let flushPromise = null;\n\n  // Load the queue from storage\n  function loadQueue() {\n    try {\n      const storedQueue = storage.getItem(key);\n      const parsedQueue = JSON.parse(storedQueue);\n      if (Array.isArray(parsedQueue)) {\n        queue = parsedQueue;\n      }\n    } catch (e) {\n      queue = [];\n    }\n  }\n\n  // Persist the queue to storage\n  function persistQueue() {\n    storage.setItem(key, JSON.stringify(queue));\n  }\n\n  loadQueue();\n\n  function enqueue(action) {\n    if (queue.some(item => item.id === action.id)) {\n      return;\n    }\n\n    if (action.dedupeKey) {\n      const dedupeIndex = queue.findIndex(item => item.dedupeKey === action.dedupeKey && item !== inFlight);\n      if (dedupeIndex !== -1) {\n        queue[dedupeIndex].type = action.type;\n        queue[dedupeIndex].payload = action.payload;\n        queue[dedupeIndex].attempts = 0;\n        persistQueue();\n        return;\n      }\n    }\n\n    queue.push({ ...action, attempts: 0 });\n    persistQueue();\n  }\n\n  function flush() {\n    if (flushPromise) {\n      return flushPromise;\n    }\n\n    flushPromise = (async () => {\n      const sent = [];\n      const failed = [];\n\n      while (queue.length > 0) {\n        const currentItem = queue[0];\n        inFlight = currentItem;\n\n        try {\n          const result = await send({\n            id: currentItem.id,\n            type: currentItem.type,\n            payload: currentItem.payload\n          });\n\n          if (result.ok) {\n            sent.push(currentItem.id);\n            queue.shift();\n          } else if (!result.retryable) {\n            failed.push({ id: currentItem.id, reason: \"rejected\" });\n            queue.shift();\n          } else {\n            currentItem.attempts += 1;\n            if (currentItem.attempts >= maxAttempts) {\n              failed.push({ id: currentItem.id, reason: \"max-attempts\" });\n              queue.shift();\n            }\n            break;\n          }\n        } catch (e) {\n          currentItem.attempts += 1;\n          if (currentItem.attempts >= maxAttempts) {\n            failed.push({ id: currentItem.id, reason: \"max-attempts\" });\n            queue.shift();\n          }\n          break;\n        } finally {\n          inFlight = null;\n          persistQueue();\n        }\n      }\n\n      flushPromise = null;\n      return { sent, failed, remaining: queue.length };\n    })();\n\n    return flushPromise;\n  }\n\n  function size() {\n    return queue.length;\n  }\n\n  function peek() {\n    return queue.map(item => ({ ...item }));\n  }\n\n  return {\n    enqueue,\n    flush,\n    size,\n    peek\n  };\n}\n```",
+  "usage": {
+    "prompt_tokens": 868,
+    "completion_tokens": 642,
+    "total_tokens": 1510,
+    "cost": 0.00859,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.00859,
+      "upstream_inference_prompt_cost": 0.00217,
+      "upstream_inference_completions_cost": 0.00642
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "latency_s": 5.9,
+  "model": "gpt-4o",
+  "model_id": "openai/gpt-4o",
+  "task": "t04_offline_queue",
+  "run": 1
+}

@@ -1,0 +1,16 @@
+{
+  "text": "```js\nfunction isValidDate(dateStr) {\n  const date = new Date(dateStr);\n  return !isNaN(date.getTime()) && date.toISOString().startsWith(dateStr);\n}\n\nfunction isWeekday(date) {\n  const day = date.getDay();\n  return day >= 1 && day <= 5;\n}\n\nfunction isHoliday(date, holidays) {\n  return holidays.includes(date.toISOString().split('T')[0]);\n}\n\nfunction getNextFreeDay(date, holidays) {\n  let nextDay = new Date(date);\n  nextDay.setDate(nextDay.getDate() + 1);\n  while (isHoliday(nextDay, holidays) || !isWeekday(nextDay)) {\n    nextDay.setDate(nextDay.getDate() + 1);\n  }\n  return nextDay;\n}\n\nexport function isBusinessDay(date, holidays = []) {\n  if (!isValidDate(date)) {\n    throw new RangeError(\"Invalid date format\");\n  }\n  const dateObj = new Date(date);\n  return isWeekday(dateObj) && !isHoliday(dateObj, holidays);\n}\n\nexport function addBusinessDays(date, n, holidays = []) {\n  if (!isValidDate(date)) {\n    throw new RangeError(\"Invalid date format\");\n  }\n  if (!Number.isInteger(n)) {\n    throw new RangeError(\"n must be an integer\");\n  }\n  const dateObj = new Date(date);\n  let count = 0;\n  while (count !== n) {\n    dateObj.setDate(dateObj.getDate() + (n > 0 ? 1 : -1));\n    if (isBusinessDay(dateObj.toISOString().split('T')[0], holidays)) {\n      count += n > 0 ? 1 : -1;\n    }\n  }\n  return dateObj.toISOString().split('T')[0].padStart(10, '0');\n}\n\nexport function businessDaysBetween(start, end, holidays = []) {\n  if (!isValidDate(start) || !isValidDate(end)) {\n    throw new RangeError(\"Invalid date format\");\n  }\n  const startDate = new Date(start);\n  const endDate = new Date(end);\n  if (startDate > endDate) {\n    return -businessDaysBetween(end, start, holidays);\n  }\n  let count = 0;\n  while (startDate <= endDate) {\n    if (isBusinessDay(startDate.toISOString().split('T')[0], holidays)) {\n      count++;\n    }\n    startDate.setDate(startDate.getDate() + 1);\n  }\n  return count;\n}\n```",
+  "usage": {
+    "prompt_tokens": 666,
+    "prompt_tokens_details": {
+      "cached_tokens": 49
+    },
+    "completion_tokens": 510,
+    "total_tokens": 1176
+  },
+  "latency_s": 305.0,
+  "model": "qwen2.5-coder-7b-local",
+  "model_id": "qwen2.5-coder:7b",
+  "task": "t08_business_days",
+  "run": 1
+}

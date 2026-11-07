@@ -1,0 +1,22 @@
+{
+  "text": "```js\nexport function normalizeNigerianPhone(input) {\n  if (typeof input !== \"string\") {\n    return null;\n  }\n\n  let national = input.replace(/[\\s().-]/g, \"\");\n\n  if (!/^\\+?\\d+$/.test(national)) {\n    return null;\n  }\n\n  if (national.startsWith(\"+\")) {\n    if (!national.startsWith(\"+234\")) {\n      return null;\n    }\n    national = national.slice(4);\n  } else if (national.startsWith(\"00234\")) {\n    national = national.slice(5);\n  } else if (national.startsWith(\"234\")) {\n    national = national.slice(3);\n  }\n\n  if (national.startsWith(\"00\")) {\n    return null;\n  }\n\n  if (national.startsWith(\"0\")) {\n    national = national.slice(1);\n  }\n\n  return /^[789][01]\\d{8}$/.test(national)\n    ? `+234${national}`\n    : null;\n}\n\nexport function formatNigerianPhone(input) {\n  const normalized = normalizeNigerianPhone(input);\n\n  if (normalized === null) {\n    return null;\n  }\n\n  const national = `0${normalized.slice(4)}`;\n  return `${national.slice(0, 4)} ${national.slice(4, 7)} ${national.slice(7)}`;\n}\n```",
+  "usage": {
+    "input_tokens": 648,
+    "input_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0
+    },
+    "output_tokens": 1819,
+    "output_tokens_details": {
+      "reasoning_tokens": 1530
+    },
+    "total_tokens": 2467,
+    "prompt_tokens": 648,
+    "completion_tokens": 1819
+  },
+  "latency_s": 38.2,
+  "model": "gpt-6.1-sol",
+  "model_id": "gpt-6.1-sol",
+  "task": "t02_ng_phone",
+  "run": 1
+}
